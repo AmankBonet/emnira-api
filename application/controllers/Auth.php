@@ -65,9 +65,10 @@ class Auth extends RestController
         }
 
 
-        $user = $this->db->get_where('api_login', ['username' => $username])->row_array();
+        $user = $this->db->get_where('m_api_login', ['username' => $username])->row_array();
 
-        $isPasswordValid = $user && password_verify($password, $user['password']);
+        // $isPasswordValid = $user && password_verify($password, $user['password']);
+        $isPasswordValid = $user && $password === $user['password'];
 
         if ($isPasswordValid) {
             $issuedAt = time();
