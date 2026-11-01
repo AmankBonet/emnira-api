@@ -8,9 +8,8 @@ class Master_model extends CI_Model
         parent::__construct();
     }
 
-    public function getLokasi()
+    public function getFaskes()
     {
-        return $this->db->get('m_lokasi')->result_array();
+        return $this->db->get('m_faskes')->result_array();
     }
-    
 }

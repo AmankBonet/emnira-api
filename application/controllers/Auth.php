@@ -1,113 +1,195 @@
 <?php
+
 defined('BASEPATH') or exit('No direct script access allowed');
 
 use chriskacerguis\RestServer\RestController;
-use \Firebase\JWT\JWT;
+use Firebase\JWT\JWT;
 
-require_once 'vendor/autoload.php';
+require_once FCPATH . 'vendor/autoload.php';
 
 class Auth extends RestController
 {
     public function __construct()
     {
         parent::__construct();
+
+        $this->load->database();
         $this->load->helper('token');
     }
 
-    private function gagal($pesan = 'Anda tidak memiliki akses / Layanan tidak tersedia.')
+    private function reply($code, $message, $data = null)
     {
-        $status = parent::HTTP_CREATED;
-        // $status = parent::HTTP_UNAUTHORIZED;
-        $response = array(
-            'metadata' => array(
-                'code' => $status,
-                'message' => $pesan
-            )
-        );
-        $this->response($response, $status);
-    }
+        $body = [
+            'metadata' => [
+                'code' => $code,
+                'message' => $message
+            ]
+        ];
 
-    private function check($data)
-    {
-        $obj = new stdClass;
-        if (count($data) == 0) {
-            $obj->status = false;
-            $obj->message = "Data tidak tersedia!";
-        } else {
-            $obj->status = true;
-        }
-        return $obj;
-    }
-
-    private function tomiliseconds($tanggal)
-    {
-        date_default_timezone_set('Asia/Jakarta');
-        return strtotime($tanggal) * 1000;
-    }
-
-    public function index_get()
-    {
-        $username = $this->input->get_request_header('x-username', TRUE) 
-                ?? $this->input->get_request_header('X-Username', TRUE);
-                
-        $password = $this->input->get_request_header('x-password', TRUE) 
-                ?? $this->input->get_request_header('X-Password', TRUE);
-
-        if (empty($username) || empty($password)) {
-            $status = parent::HTTP_BAD_REQUEST; 
-            $response = [
-                'metadata' => [
-                    'code' => $status,
-                    'message' => 'Header x-username dan x-password wajib diisi.'
-                ]
-            ];
-            return $this->response($response, $status);
+        if ($data !== null) {
+            $body['response'] = $data;
         }
 
-
-        $user = $this->db->get_where('m_api_login', ['username' => $username])->row_array();
-
-        // $isPasswordValid = $user && password_verify($password, $user['password']);
-        $isPasswordValid = $user && $password === $user['password'];
-
-        if ($isPasswordValid) {
-            $issuedAt = time();
-            $expirationTime = $issuedAt + (10 * 60); // Token berlaku 10 menit
-
-            $payload = [
-                'iat'      => $issuedAt,
-                'exp'      => $expirationTime,
-                'uid'      => $user['id'],
-                'username' => $user['username'],
-                'jti'      => uniqid('', true)
-            ];
-
-            $token = JWT::encode($payload, $this->config->item('jwt_key'), 'HS256');
-            $status = parent::HTTP_OK; // 200
-
-            $response = [
-                'response' => [
-                    'token' => $token
-                ],
-                'metadata' => [
-                    'message' => 'Ok',
-                    'code'    => $status
-                ]
-            ];
-            $this->response($response, $status);
-
-        } else {
-            $status = parent::HTTP_UNAUTHORIZED; // 401 Unauthorized (Lebih tepat daripada HTTP_CREATED)
-            $response = [
-                'metadata' => [
-                    'code'    => $status,
-                    'message' => 'User dan Password tidak sesuai.'
-                ]
-            ];
-            $this->response($response, $status);
-        }
+        return $this->response($body, $code);
     }
 
-    
-    
+    private function profile($user)
+    {
+        return array_intersect_key($user, array_flip([
+            'id_user',
+            'nama',
+            'username',
+            'id_faskes',
+            'id_role',
+            'id_active'
+        ]));
+    }
+
+    private function tokens($user, $sid, $refresh)
+    {
+        $now = time();
+        $token = JWT::encode([
+            'iat' => $now,
+            'exp' => $now + 600,
+            'uid' => (int) $user['id_user'],
+            'username' => $user['username'],
+            'id_role' => $user['id_role'],
+            'id_faskes' => $user['id_faskes'],
+            'sid' => $sid,
+            'jti' => bin2hex(random_bytes(16))
+        ], $this->config->item('jwt_key'), 'HS256');
+
+        return [
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'expires_in' => 600,
+            'refresh_token' => $refresh,
+            'user' => $this->profile($user)
+        ];
+    }
+
+    public function login_post()
+    {
+        $data = $this->post();
+        $username = isset($data['username']) ? $data['username'] : null;
+        $password = isset($data['password']) ? $data['password'] : null;
+
+        if (
+            !is_string($username)
+            || trim($username) === ''
+            || !is_string($password)
+            || $password === ''
+        ) {
+            return $this->reply(400, 'Username dan password wajib diisi.');
+        }
+
+        $users = $this->db
+            ->get_where('m_user', ['username' => $username])
+            ->result_array();
+        $user = count($users) === 1 ? $users[0] : null;
+
+        // Sementara untuk uji coba: password_hash masih berisi password biasa.
+        $valid = $user
+            && is_string($user['password_hash'])
+            && hash_equals($user['password_hash'], $password);
+
+        // Setelah seluruh password disimpan menggunakan password_hash(), ganti baris di atas:
+        // $valid = $user && password_verify($password, $user['password_hash']);
+        if (!$valid || (int) $user['id_active'] !== 1) {
+            return $this->reply(401, 'Username/password tidak sesuai atau akun tidak aktif.');
+        }
+
+        $sid = bin2hex(random_bytes(32));
+        $refresh = bin2hex(random_bytes(32));
+        $result = $this->tokens($user, $sid, $refresh);
+
+        if (!$this->db->insert('auth_sessions', [
+            'id_session' => $sid,
+            'id_user' => $user['id_user'],
+            'refresh_hash' => hash('sha256', $refresh),
+            'expires_at' => time() + 7 * 86400,
+            'revoked_at' => null
+        ])) {
+            return $this->reply(500, 'Gagal membuat sesi.');
+        }
+
+        return $this->reply(200, 'Login berhasil.', $result);
+    }
+
+    public function refresh_post()
+    {
+        $data = $this->post();
+
+        if (
+            !isset($data['refresh_token'])
+            || !is_string($data['refresh_token'])
+            || $data['refresh_token'] === ''
+        ) {
+            return $this->reply(400, 'Refresh token wajib diisi.');
+        }
+
+        $hash = hash('sha256', $data['refresh_token']);
+        $session = $this->db->get_where('auth_sessions', [
+            'refresh_hash' => $hash,
+            'revoked_at' => null,
+            'expires_at >' => time()
+        ])->row_array();
+
+        if (!$session) {
+            return $this->reply(401, 'Sesi berakhir. Silakan login kembali.');
+        }
+
+        $user = $this->db->get_where('m_user', [
+            'id_user' => $session['id_user'],
+            'id_active' => 1
+        ])->row_array();
+
+        if (!$user) {
+            return $this->reply(401, 'Akun tidak aktif atau tidak ditemukan.');
+        }
+
+        $refresh = bin2hex(random_bytes(32));
+        $result = $this->tokens($user, $session['id_session'], $refresh);
+
+        // Update bersyarat mencegah dua request memakai refresh token yang sama.
+        $saved = $this->db
+            ->where([
+                'id_session' => $session['id_session'],
+                'refresh_hash' => $hash,
+                'revoked_at' => null,
+                'expires_at >' => time()
+            ])
+            ->update('auth_sessions', [
+                'refresh_hash' => hash('sha256', $refresh)
+            ]);
+
+        if (!$saved || $this->db->affected_rows() !== 1) {
+            return $this->reply(401, 'Refresh token sudah digunakan atau sesi berakhir.');
+        }
+
+        return $this->reply(200, 'Token diperbarui.', $result);
+    }
+
+    public function me_get()
+    {
+        $claims = validate_custom_token();
+
+        return $this->reply(200, 'Ok', [
+            'user' => $this->profile($claims['user'])
+        ]);
+    }
+
+    public function logout_post()
+    {
+        $claims = validate_custom_token();
+
+        if (!$this->db
+            ->where('id_session', $claims['sid'])
+            ->update('auth_sessions', ['revoked_at' => time()])
+        ) {
+            return $this->reply(500, 'Gagal mengakhiri sesi.');
+        }
+
+        return $this->reply(200, 'Logout berhasil.');
+    }
 }
