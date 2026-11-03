@@ -35,14 +35,32 @@ class Auth extends RestController
 
     private function profile($user)
     {
-        return array_intersect_key($user, array_flip([
-            'id_user',
-            'nama',
-            'username',
-            'id_faskes',
-            'id_role',
-            'id_active'
-        ]));
+        $faskes = null;
+        if (!empty($user['id_faskes'])) {
+            $faskesData = $this->db
+                ->get_where('m_faskes', ['id_faskes' => $user['id_faskes']])
+                ->row_array();
+            $faskes = $faskesData && isset($faskesData['nama_faskes']) ? $faskesData['nama_faskes'] : null;
+        }
+
+        $role = null;
+        if (!empty($user['id_role'])) {
+            $roleData = $this->db
+                ->get_where('m_role', ['id_role' => $user['id_role']])
+                ->row_array();
+            $role = $roleData && isset($roleData['nama_role']) ? $roleData['nama_role'] : null;
+        }
+
+        $status = (int) $user['id_active'] === 1 ? 'aktif' : 'non aktif';
+
+        return [
+            'id_user'  => $user['id_user'],
+            'nama'     => $user['nama'],
+            'username' => $user['username'],
+            'faskes'   => $faskes,
+            'role'     => $role,
+            'status'   => $status
+        ];
     }
 
     private function tokens($user, $sid, $refresh)
