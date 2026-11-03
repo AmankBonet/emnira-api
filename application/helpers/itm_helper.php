@@ -3,7 +3,19 @@
 function getFaskes($kode, $strcol)
 {
     $ci =   get_instance();
-    $result = $ci->db->get_where('profil', ['id_profil' => $kode])->row_array();
+    $result = $ci->db->get_where('m_faskes', ['id_faskes' => $kode])->row_array();
+    if ($result) {
+        $response =  $result[$strcol];
+    } else {
+        $response =  "-";
+    }
+    return $response;
+}
+
+function getRole($kode, $strcol)
+{
+    $ci =   get_instance();
+    $result = $ci->db->get_where('m_role', ['id_role' => $kode])->row_array();
     if ($result) {
         $response =  $result[$strcol];
     } else {

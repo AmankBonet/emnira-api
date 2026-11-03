@@ -1,0 +1,24 @@
+:root { --app-navy: #152d3b; --app-teal: #087f78; }
+body { background: #f4f7fa; color: #243746; }
+.workspace { min-height: 100vh; display: flex; flex-direction: column; }
+.app-sidebar { --bs-offcanvas-width: 250px; background: var(--app-navy) !important; color: #fff; }
+.brand { color: #fff; font-size: 1.5rem; font-weight: 750; letter-spacing: .04em; }
+.brand .small { font-size: .75rem; color: #b5cbd6; letter-spacing: 0; }
+.menu-label { font-size: .7rem; letter-spacing: .14em; color: #a2b9c5; }
+.app-sidebar .nav-link { color: #c9d9e2; padding: .8rem 1rem; }
+.app-sidebar .nav-link.active { background: var(--app-teal); color: #fff; }
+.app-sidebar .nav-link:hover { background: #244957; color: #fff; }
+.sidebar-note { color: #a2b9c5; line-height: 1.7; }
+.btn-primary { --bs-btn-bg: #087f78; --bs-btn-border-color: #087f78; --bs-btn-hover-bg: #06655f; --bs-btn-hover-border-color: #06655f; --bs-btn-active-bg: #05564f; --bs-btn-active-border-color: #05564f; }
+.card { border-color: #e4ebef; border-radius: 1rem; }
+.table > :not(caption) > * > * { padding: 1rem; }
+.table thead th { background: #f7f9fb; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: #617382; white-space: nowrap; }
+.user-avatar { width: 38px; height: 38px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: #e6f4f1; color: #087f78; font-weight: 700; border-radius: 12px; }
+.user-name { max-width: 250px; overflow-wrap: anywhere; }
+.search-input { max-width: 360px; }
+@media (min-width: 992px) {
+    .app-sidebar { position: fixed; inset: 0 auto 0 0; width: 250px; height: 100vh; }
+    .app-sidebar .offcanvas-header { display: flex; }
+    .app-sidebar .offcanvas-body { height: calc(100vh - 110px); }
+    .workspace { margin-left: 250px; }
+}

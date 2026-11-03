@@ -106,13 +106,13 @@ class Auth extends RestController
             ->result_array();
         $user = count($users) === 1 ? $users[0] : null;
 
-        // Sementara untuk uji coba: password_hash masih berisi password biasa.
+        // Akun baru memakai hash; akun lama tetap kompatibel selama transisi.
         $valid = $user
             && is_string($user['password_hash'])
-            && hash_equals($user['password_hash'], $password);
+            && (password_get_info($user['password_hash'])['algoName'] !== 'unknown'
+                ? password_verify($password, $user['password_hash'])
+                : hash_equals($user['password_hash'], $password));
 
-        // Setelah seluruh password disimpan menggunakan password_hash(), ganti baris di atas:
-        // $valid = $user && password_verify($password, $user['password_hash']);
         if (!$valid || (int) $user['id_active'] !== 1) {
             return $this->reply(401, 'Username/password tidak sesuai atau akun tidak aktif.');
         }

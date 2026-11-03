@@ -37,3 +37,4 @@
 Thumbs.db
 Desktop.ini
 index.php
+!/application/views/**/index.php
