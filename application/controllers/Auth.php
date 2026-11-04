@@ -210,4 +210,106 @@ class Auth extends RestController
 
         return $this->reply(200, 'Logout berhasil.');
     }
+
+    public function push_token_get()
+    {
+        $claims = validate_custom_token();
+
+        return $this->reply(200, 'Ok', [
+            'id_user' => $claims['user']['id_user'],
+            'token_expo_push' => isset($claims['user']['token_expo_push'])
+                ? $claims['user']['token_expo_push']
+                : null
+        ]);
+    }
+
+    public function push_token_post()
+    {
+        return $this->save_push_token();
+    }
+
+    public function push_token_put()
+    {
+        return $this->save_push_token();
+    }
+
+    public function push_token_delete()
+    {
+        $claims = validate_custom_token();
+
+        $saved = $this->db
+            ->where('id_user', $claims['uid'])
+            ->update('m_user', [
+                'token_expo_push' => null
+            ]);
+
+        if (!$saved)
+        {
+            return $this->reply(500, 'Gagal menghapus token push notification.');
+        }
+
+        return $this->reply(200, 'Token push notification berhasil dihapus.', [
+            'id_user' => $claims['user']['id_user'],
+            'token_expo_push' => null
+        ]);
+    }
+
+    private function save_push_token()
+    {
+        $claims = validate_custom_token();
+        $payload = json_decode($this->input->raw_input_stream, true);
+
+        if (!is_array($payload))
+        {
+            $payload = $this->post() ?: $this->put();
+        }
+
+        $token = null;
+
+        if (is_array($payload))
+        {
+            if (array_key_exists('token_expo_push', $payload))
+            {
+                $token = $payload['token_expo_push'];
+            }
+            elseif (array_key_exists('token', $payload))
+            {
+                $token = $payload['token'];
+            }
+        }
+
+        if (!is_string($token) || trim($token) === '')
+        {
+            return $this->reply(400, 'Token Expo Push wajib diisi.');
+        }
+
+        $token = trim($token);
+
+        if (strlen($token) > 255)
+        {
+            return $this->reply(422, 'Token Expo Push maksimal 255 karakter.');
+        }
+
+        // Format standar Expo Push Token adalah ExponentPushToken[...] atau ExpoPushToken[...]
+        if (!preg_match('/^(ExponentPushToken|ExpoPushToken)\[[^\]]+\]$/', $token))
+        {
+            return $this->reply(422, 'Format token Expo Push tidak valid (gunakan format ExponentPushToken[...] atau ExpoPushToken[...]).');
+        }
+
+        $saved = $this->db
+            ->where('id_user', $claims['uid'])
+            ->update('m_user', [
+                'token_expo_push' => $token
+            ]);
+
+        if (!$saved)
+        {
+            return $this->reply(500, 'Gagal menyimpan token push notification.');
+        }
+
+        return $this->reply(200, 'Token push notification berhasil disimpan.', [
+            'id_user' => $claims['user']['id_user'],
+            'token_expo_push' => $token
+        ]);
+    }
 }

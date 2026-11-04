@@ -107,6 +107,93 @@ class Rujukan extends RestController
             return $this->reply(500, 'Rujukan gagal disimpan.');
         }
 
+        // Kirim notifikasi Expo Push ke seluruh petugas aktif pada faskes tujuan
+        $this->notifyFaskesTujuan(
+            (int) $input['id_faskes_tujuan'],
+            isset($asal['nama_faskes']) ? $asal['nama_faskes'] : 'FKTP'
+        );
+
         return $this->reply(201, 'Rujukan berhasil disimpan.', ['id_rm' => $id]);
+    }
+
+    private function notifyFaskesTujuan($idFaskesTujuan, $namaFaskesAsal)
+    {
+        $recipients = $this->db
+            ->select('token_expo_push')
+            ->where('id_faskes', $idFaskesTujuan)
+            ->where('id_active', 1)
+            ->where('token_expo_push IS NOT NULL', null, false)
+            ->where('token_expo_push !=', '')
+            ->get('m_user')
+            ->result_array();
+
+        if (empty($recipients))
+        {
+            return;
+        }
+
+        $title = 'Rujukan PONEK Baru Masuk';
+        $body = 'Rujukan baru dari ' . $namaFaskesAsal . ' membutuhkan penanganan segera.';
+        $sentTokens = [];
+
+        foreach ($recipients as $row)
+        {
+            $token = trim((string) $row['token_expo_push']);
+
+            if ($token === '' || isset($sentTokens[$token]))
+            {
+                continue;
+            }
+
+            $sentTokens[$token] = true;
+            $this->sendPushNotification($token, $title, $body);
+        }
+    }
+
+    private function sendPushNotification($token, $title, $body)
+    {
+        $payload = [
+            'to'        => $token,
+            'title'     => $title,
+            'body'      => $body,
+            'priority'  => 'high',
+            'channelId' => 'emnira_custom_sound',
+            'ttl'       => 86400
+        ];
+
+        $ch = curl_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => 'https://exp.host/--/api/v2/push/send',
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => [
+                'Accept: application/json',
+                'Content-Type: application/json',
+                'Accept-Encoding: gzip, deflate'
+            ],
+            CURLOPT_TIMEOUT        => 30
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+
+        curl_close($ch);
+
+        if ($response === false)
+        {
+            return [
+                'status'  => false,
+                'message' => $curlError
+            ];
+        }
+
+        return [
+            'status'    => $httpCode == 200,
+            'http_code' => $httpCode,
+            'response'  => json_decode($response, true)
+        ];
     }
 }

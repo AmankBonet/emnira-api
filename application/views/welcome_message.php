@@ -710,6 +710,12 @@ function format_rujukan_field_rule($field, $raw_type)
                             <span class="method-pill method-post">POST</span>
                         </a>
                     </li>
+                    <li>
+                        <a class="nav-link" href="#auth-push-token">
+                            <span>Expo Push Token</span>
+                            <span class="method-pill method-post">CRUD</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
 
@@ -1077,6 +1083,90 @@ function format_rujukan_field_rule($field, $raw_type)
                 </div>
             </section>
 
+            <!-- 4B. AUTH: EXPO PUSH TOKEN CRUD -->
+            <section id="auth-push-token" class="section-card">
+                <div class="endpoint-header">
+                    <div class="endpoint-title-wrap">
+                        <span class="method-pill method-post">POST / PUT</span>
+                        <span class="method-pill method-get">GET</span>
+                        <span class="method-pill" style="background:#fee2e2;color:#b91c1c;">DELETE</span>
+                        <h2 class="endpoint-title">CRUD Register Token Expo Push Notification</h2>
+                    </div>
+                    <span class="auth-badge protected">Wajib Bearer Token</span>
+                </div>
+
+                <p>Mengelola penyimpanan, pembacaan, pembaruan, dan penghapusan kolom <code>token_expo_push</code> pada tabel <code>m_user</code> untuk akun yang sedang login.</p>
+
+                <div class="endpoint-bar">
+                    <div class="endpoint-path">
+                        <span class="method-pill method-post">POST / PUT / GET / DELETE</span>
+                        <span id="url-auth-push-token"><?= htmlspecialchars($base_url_clean . '/auth/push_token', ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <button type="button" class="btn-copy" data-copy-target="url-auth-push-token">Salin URL</button>
+                </div>
+
+                <h3>1. Register / Update Token (<code>POST</code> atau <code>PUT</code>)</h3>
+                <div class="code-wrap">
+                    <div class="code-head">
+                        <span>Request Body &mdash; application/json</span>
+                        <button type="button" class="btn-copy" data-copy-target="body-push-token">Salin JSON</button>
+                    </div>
+<pre><code id="body-push-token">{
+  "token_expo_push": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+}</code></pre>
+                </div>
+
+                <div class="code-wrap">
+                    <div class="code-head">
+                        <span>Respons Sukses (200 OK)</span>
+                    </div>
+<pre><code>{
+  "metadata": {
+    "code": 200,
+    "message": "Token push notification berhasil disimpan."
+  },
+  "response": {
+    "id_user": "2",
+    "token_expo_push": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+  }
+}</code></pre>
+                </div>
+
+                <h3>2. Ambil Token Saat Ini (<code>GET</code>)</h3>
+                <div class="code-wrap">
+                    <div class="code-head">
+                        <span>Respons Sukses (200 OK)</span>
+                    </div>
+<pre><code>{
+  "metadata": {
+    "code": 200,
+    "message": "Ok"
+  },
+  "response": {
+    "id_user": "2",
+    "token_expo_push": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+  }
+}</code></pre>
+                </div>
+
+                <h3>3. Hapus Token (<code>DELETE</code>)</h3>
+                <div class="code-wrap">
+                    <div class="code-head">
+                        <span>Respons Sukses (200 OK)</span>
+                    </div>
+<pre><code>{
+  "metadata": {
+    "code": 200,
+    "message": "Token push notification berhasil dihapus."
+  },
+  "response": {
+    "id_user": "2",
+    "token_expo_push": null
+  }
+}</code></pre>
+                </div>
+            </section>
+
             <!-- 5. MASTER: FASKES -->
             <section id="master-faskes" class="section-card">
                 <div class="endpoint-header">
@@ -1152,6 +1242,7 @@ function format_rujukan_field_rule($field, $raw_type)
                         <li>Jika <code>perdarahan_status</code> bernilai <code>"tidak_ada"</code>, maka kolom <code>perdarahan_volume</code> dan <code>perdarahan_karakteristik</code> tidak boleh diisi.</li>
                         <li>Jika array <code>pilihan</code> memuat kode <code>"riwayat_tidak_ada"</code>, maka tidak boleh digabung dengan kode <code>riwayat_*</code> lainnya.</li>
                         <li>Jika memilih kode checkbox dengan awalan <code>bahaya_*</code>, <code>riwayat_*</code>, atau <code>terapi_*</code>, maka flag penilaian terkait (<code>skrining_bahaya_sudah_dinilai</code>, <code>riwayat_medis_sudah_dinilai</code>, atau <code>terapi_sudah_dinilai</code>) wajib bernilai <code>1</code>.</li>
+                        <li><strong>Push Notification Otomatis:</strong> Setelah rujukan berhasil disimpan, server otomatis mengirimkan Expo Push Notification (channel <code>emnira_custom_sound</code>, prioritas <code>high</code>) ke seluruh akun petugas aktif (<code>id_active = 1</code>) di <code>id_faskes_tujuan</code> yang memiliki <code>token_expo_push</code> terdaftar.</li>
                     </ul>
                 </div>
 
@@ -1165,8 +1256,11 @@ function format_rujukan_field_rule($field, $raw_type)
   "id_kunjungan": 1,
   "id_faskes_tujuan": 2,
   "id_diagnosis": 1,
+  "waktu_rujukan": "2026-11-04 09:00:00",
   "skrining_bahaya_sudah_dinilai": 1,
-  "perdarahan_status": "tidak_ada",
+  "perdarahan_status": "aktif",
+  "perdarahan_volume": "lt_500",
+  "perdarahan_karakteristik": "darah_segar",
   "tfu_cm": 32.5,
   "kepala_masuk_panggul": 1,
   "djj_per_menit": 142,
@@ -1176,20 +1270,33 @@ function format_rujukan_field_rule($field, $raw_type)
   "vt_pembukaan": "4_7",
   "ketuban": "utuh",
   "penurunan_kepala": "hodge_1_2",
+  "bishop_dilatasi_cm": 3.5,
+  "bishop_penipisan_persen": 60,
+  "bishop_station": 0,
+  "bishop_konsistensi": "lunak",
+  "bishop_posisi": "anterior",
   "riwayat_medis_sudah_dinilai": 1,
-  "riwayat_sc": "tidak",
-  "operasi_ginekologi": 0,
+  "alergi_obat_detail": "Alergi obat Amoxicillin",
+  "riwayat_sc": "1_kali",
+  "jarak_sc_tahun": 2.5,
+  "operasi_ginekologi": 1,
+  "operasi_ginekologi_detail": "Kistektomi ovarium kiri tahun 2022",
   "td_sistolik_mmhg": 120,
   "td_diastolik_mmhg": 80,
   "nadi_per_menit": 84,
   "rr_per_menit": 20,
   "suhu_celsius": 36.7,
   "spo2_persen": 98.0,
-  "kateter_urin_terpasang": 0,
-  "berat_badan_kg": 62.5,
+  "kateter_urin_terpasang": 1,
+  "berat_badan_kg": 60.0,
+  "produksi_urin_total_ml": 200.0,
+  "durasi_pengamatan_urin_jam": 2.0,
+  "urin_output_tercatat_ml_jam": 100.0,
   "proteinuria": "negatif",
   "hematuria": 0,
-  "oksigenasi": "tidak_diberikan",
+  "oksigenasi": "nasal_kanul",
+  "oksigen_aliran_lpm": 3.0,
+  "oksigen_konsentrasi_persen": 32.0,
   "akses_iv": "single_line_18_20",
   "jenis_cairan": "rl",
   "cairan_total_ml": 500.0,
