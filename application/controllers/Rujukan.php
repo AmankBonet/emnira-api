@@ -121,6 +121,7 @@ class Rujukan extends RestController
         $recipients = $this->db
             ->select('token_expo_push')
             ->where('id_faskes', $idFaskesTujuan)
+            ->where('id_role', 2)
             ->where('id_active', 1)
             ->where('token_expo_push IS NOT NULL', null, false)
             ->where('token_expo_push !=', '')
