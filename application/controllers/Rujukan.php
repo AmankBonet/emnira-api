@@ -180,7 +180,8 @@ class Rujukan extends RestController
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
 
-        curl_close($ch);
+        // Lepaskan handle tanpa curl_close() yang deprecated pada PHP 8.5.
+        unset($ch);
 
         if ($response === false)
         {
