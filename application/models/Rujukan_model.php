@@ -32,10 +32,14 @@ class Rujukan_model extends CI_Model
 
             $id = $this->db->insert_id();
 
-            foreach ($pilihan as $kode) {
+            foreach ($pilihan as $item) {
+                $kode = is_array($item) ? $item['kode_pilihan'] : $item;
+                $catatan = is_array($item) && isset($item['catatan']) ? $item['catatan'] : null;
+
                 if (!$this->db->insert('t_rm_pilihan', [
                     'id_rm' => $id,
-                    'kode_pilihan' => $kode
+                    'kode_pilihan' => $kode,
+                    'catatan' => $catatan
                 ])) {
                     throw new RuntimeException('Insert pilihan gagal.');
                 }

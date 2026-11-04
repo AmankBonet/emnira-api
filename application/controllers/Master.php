@@ -26,4 +26,36 @@ class Master extends RestController
             ]
         ], $status);
     }
+
+    public function rm_pilihan_get()
+    {
+        validate_custom_token();
+
+        $kelompok = $this->get('kelompok');
+        $allowedKelompok = [
+            'tanda_bahaya',
+            'riwayat_medis',
+            'terapi'
+        ];
+
+        if ($kelompok !== null && (!is_string($kelompok) || !in_array($kelompok, $allowedKelompok, true)))
+        {
+            return $this->response([
+                'metadata' => [
+                    'message' => 'Kelompok pilihan tidak valid (gunakan: tanda_bahaya, riwayat_medis, atau terapi).',
+                    'code' => 422
+                ]
+            ], 422);
+        }
+
+        $status = parent::HTTP_OK;
+
+        return $this->response([
+            'response' => $this->master->getRmPilihan($kelompok),
+            'metadata' => [
+                'message' => 'Ok',
+                'code' => $status
+            ]
+        ], $status);
+    }
 }

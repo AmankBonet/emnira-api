@@ -728,6 +728,12 @@ function format_rujukan_field_rule($field, $raw_type)
                             <span class="method-pill method-get">GET</span>
                         </a>
                     </li>
+                    <li>
+                        <a class="nav-link" href="#master-rm-pilihan">
+                            <span>Master Pilihan Rujukan</span>
+                            <span class="method-pill method-get">GET</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
 
@@ -1213,6 +1219,67 @@ function format_rujukan_field_rule($field, $raw_type)
                 </div>
             </section>
 
+            <!-- 5B. MASTER: RM PILIHAN -->
+            <section id="master-rm-pilihan" class="section-card">
+                <div class="endpoint-header">
+                    <div class="endpoint-title-wrap">
+                        <span class="method-pill method-get">GET</span>
+                        <h2 class="endpoint-title">Daftar Master Pilihan Rujukan (Checkbox)</h2>
+                    </div>
+                    <span class="auth-badge protected">Wajib Bearer Token</span>
+                </div>
+
+                <p>Mengambil daftar master opsi pilihan dari tabel <code>m_rm_pilihan</code> (<code>kode</code>, <code>kelompok</code>, <code>label</code>) yang digunakan pada field <code>pilihan</code> saat membuat rujukan. Mendukung filter opsional query parameter <code>?kelompok=tanda_bahaya|riwayat_medis|terapi</code>.</p>
+
+                <div class="endpoint-bar">
+                    <div class="endpoint-path">
+                        <span class="method-pill method-get">GET</span>
+                        <span id="url-master-rm-pilihan"><?= htmlspecialchars($base_url_clean . '/master/rm_pilihan', ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <button type="button" class="btn-copy" data-copy-target="url-master-rm-pilihan">Salin URL</button>
+                </div>
+
+                <h3>Contoh Respons Sukses (200 OK)</h3>
+                <div class="code-wrap">
+                    <div class="code-head">
+                        <span>200 OK</span>
+                    </div>
+<pre><code>{
+  "response": [
+    {
+      "kode": "bahaya_neurologis",
+      "kelompok": "tanda_bahaya",
+      "label": "Nyeri kepala hebat / Pandangan kabur / Nyeri ulu hati"
+    },
+    {
+      "kode": "bahaya_perdarahan",
+      "kelompok": "tanda_bahaya",
+      "label": "Perdarahan pervaginam masif / Aktif"
+    },
+    {
+      "kode": "bahaya_pernapasan",
+      "kelompok": "tanda_bahaya",
+      "label": "Sesak napas berat / Sianosis"
+    },
+    {
+      "kode": "riwayat_alergi",
+      "kelompok": "riwayat_medis",
+      "label": "Alergi Obat"
+    },
+    {
+      "kode": "riwayat_asma_jantung",
+      "kelompok": "riwayat_medis",
+      "label": "Asma / Penyakit Jantung"
+    }
+  ],
+  "metadata": {
+    "message": "Ok",
+    "code": 200
+  }
+}</code></pre>
+                </div>
+            </section>
+
             <!-- 6. RUJUKAN: CREATE -->
             <section id="rujukan-create" class="section-card">
                 <div class="endpoint-header">
@@ -1304,7 +1371,14 @@ function format_rujukan_field_rule($field, $raw_type)
   "tetesan_per_menit": 20,
   "terapi_sudah_dinilai": 1,
   "pilihan": [
-    "riwayat_tidak_ada"
+    "bahaya_neurologis",
+    "bahaya_perdarahan",
+    "bahaya_pernapasan",
+    "riwayat_alergi",
+    {
+      "kode_pilihan": "riwayat_asma_jantung",
+      "catatan": "Terkontrol obat inhalasi rutin"
+    }
   ]
 }</code></pre>
                 </div>
@@ -1379,8 +1453,8 @@ function format_rujukan_field_rule($field, $raw_type)
                             <tr>
                                 <td><code>pilihan</code></td>
                                 <td><span class="opt-tag">Opsional</span></td>
-                                <td>array of string</td>
-                                <td>Daftar kode checkbox unik (maks 60 karakter per kode) yang terdaftar pada tabel <code>m_rm_pilihan</code>.</td>
+                                <td>array of string / object</td>
+                                <td>Daftar pilihan dari master <code>m_rm_pilihan</code>. Bisa berupa string kode langsung (misal: <code>"bahaya_neurologis"</code>) atau objek dengan catatan <code>{"kode_pilihan": "riwayat_asma_jantung", "catatan": "..."}</code> yang disimpan ke tabel <code>t_rm_pilihan</code>.</td>
                             </tr>
                         </tbody>
                     </table>

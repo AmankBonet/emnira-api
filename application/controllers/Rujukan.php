@@ -85,11 +85,38 @@ class Rujukan extends RestController
             return $this->reply(422, 'Diagnosis tidak ditemukan.');
         }
 
-        $pilihan = isset($input['pilihan']) ? $input['pilihan'] : [];
+        $pilihan = isset($input['pilihan']) ? normalize_rujukan_pilihan($input['pilihan']) : [];
 
-        foreach ($pilihan as $kode) {
-            if (!$this->db->get_where('m_rm_pilihan', ['kode' => $kode])->row_array()) {
-                return $this->reply(422, 'Kode checkbox tidak ditemukan.');
+        foreach ($pilihan as $item)
+        {
+            $masterPilihan = $this->db
+                ->get_where('m_rm_pilihan', ['kode' => $item['kode_pilihan']])
+                ->row_array();
+
+            if (!$masterPilihan)
+            {
+                return $this->reply(422, 'Kode checkbox tidak ditemukan pada master m_rm_pilihan.');
+            }
+
+            // Pastikan flag penilaian sesuai kelompok master m_rm_pilihan bernilai 1
+            $kelompokFlags = [
+                'tanda_bahaya'  => 'skrining_bahaya_sudah_dinilai',
+                'riwayat_medis' => 'riwayat_medis_sudah_dinilai',
+                'terapi'        => 'terapi_sudah_dinilai'
+            ];
+
+            if (isset($kelompokFlags[$masterPilihan['kelompok']]))
+            {
+                $flagCol = $kelompokFlags[$masterPilihan['kelompok']];
+
+                if (!isset($input[$flagCol]) || (int) $input[$flagCol] !== 1)
+                {
+                    return $this->reply(422, 'Validasi gagal.', [
+                        'errors' => [
+                            $flagCol => 'Harus bernilai 1 jika pilihan kelompok ' . $masterPilihan['kelompok'] . ' dipilih.'
+                        ]
+                    ]);
+                }
             }
         }
 
