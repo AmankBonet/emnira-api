@@ -907,8 +907,8 @@ function format_rujukan_field_rule($field, $raw_type)
                         <button type="button" class="btn-copy" data-copy-target="body-auth-login">Salin JSON</button>
                     </div>
 <pre><code id="body-auth-login">{
-  "username": "kiki",
-  "password": "enak"
+  "username": "{isi username pengguna faskes}",
+  "password": "{isi password pengguna faskes}"
 }</code></pre>
                 </div>
 
@@ -967,7 +967,7 @@ function format_rujukan_field_rule($field, $raw_type)
                         <button type="button" class="btn-copy" data-copy-target="body-auth-refresh">Salin JSON</button>
                     </div>
 <pre><code id="body-auth-refresh">{
-  "refresh_token": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+  "refresh_token": "{isi refresh token pengguna}"
 }</code></pre>
                 </div>
 
@@ -985,11 +985,11 @@ function format_rujukan_field_rule($field, $raw_type)
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "token_type": "Bearer",
     "expires_in": 600,
-    "refresh_token": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+    "refresh_token": "{isi refresh token pengguna}",
     "user": {
       "id_user": "2",
       "nama": "RIZKI AMALIA",
-      "username": "kiki",
+      "username": "{isi username pengguna}",
       "faskes": "Puskesmas Kecamatan A",
       "role": "Bidan",
       "status": "aktif"
@@ -1033,7 +1033,7 @@ function format_rujukan_field_rule($field, $raw_type)
     "user": {
       "id_user": "2",
       "nama": "RIZKI AMALIA",
-      "username": "kiki",
+      "username": "{isi username pengguna}",
       "faskes": "Puskesmas Kecamatan A",
       "role": "Bidan",
       "status": "aktif"
