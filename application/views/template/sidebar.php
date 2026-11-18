@@ -9,6 +9,10 @@
         <nav class="nav nav-pills flex-column" aria-label="Menu utama">
             <a class="nav-link d-flex align-items-center gap-2 <?= $active_menu === 'users' ? 'active' : '' ?>" <?= $active_menu === 'users' ? 'aria-current="page"' : '' ?> href="<?= html_escape(site_url('web/users')) ?>"><?php $this->load->view('template/icon', ['icon' => 'users']); ?> Pengguna</a>
         </nav>
+        <div class="menu-label px-3 mb-3 mt-4">REKAM MEDIS</div>
+        <nav class="nav nav-pills flex-column" aria-label="Menu rekam medis">
+            <a class="nav-link d-flex align-items-center gap-2 <?= $active_menu === 'rm' ? 'active' : '' ?>" <?= $active_menu === 'rm' ? 'aria-current="page"' : '' ?> href="<?= html_escape(site_url('web/rm')) ?>"><?php $this->load->view('template/icon', ['icon' => 'patient']); ?> Identitas pasien</a>
+        </nav>
         <?= form_open('web/login/logout', ['class' => 'mt-3']) ?>
             <button class="nav-link d-flex align-items-center gap-2 w-100 border-0 bg-transparent text-start" type="submit"><?php $this->load->view('template/icon', ['icon' => 'logout']); ?> Keluar</button>
         <?= form_close() ?>

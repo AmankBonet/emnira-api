@@ -22,3 +22,26 @@ body { background: #f4f7fa; color: #243746; }
     .app-sidebar .offcanvas-body { height: calc(100vh - 110px); }
     .workspace { margin-left: 250px; }
 }
+
+/* Halaman rekam medis pasien */
+.patient-avatar { width: 52px; height: 52px; font-size: 1.25rem; }
+.patient-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem 2rem; min-width: min(100%, 520px); }
+.patient-facts dt { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: #617382; font-weight: 600; }
+.patient-facts dd { margin: 0; font-weight: 600; }
+.flag { padding: .35rem .75rem; border-radius: .5rem; font-size: .875rem; border-left: 4px solid; }
+.flag-danger { background: #fdecee; border-color: #dc3545; color: #842029; }
+.flag-warning { background: #fff7e0; border-color: #e0a800; color: #664d03; }
+.flag-info { background: #e8f4fb; border-color: #3d8bd4; color: #084264; }
+.rm-tabs { border-bottom: 0; flex-wrap: nowrap; overflow-x: auto; }
+.rm-tabs .nav-link { color: #4b5f6d; white-space: nowrap; }
+.rm-tabs .nav-link.active { color: var(--app-teal); font-weight: 600; }
+.rm-tab-card { border-top-left-radius: 0; }
+.gpa-row { display: grid; grid-template-columns: minmax(0, 1fr) 170px minmax(0, 1fr); gap: 1rem; align-items: center; padding: .75rem 1rem; border: 1px solid #e4ebef; border-radius: .75rem; }
+.stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper input { -moz-appearance: textfield; }
+.riwayat-card { border: 1px solid #e4ebef; border-radius: .75rem; padding: 1rem 1.25rem 1.25rem; }
+.riwayat-head { float: none; width: auto; font-size: 1rem; padding: 0 .5rem; margin-bottom: .5rem; }
+.kondisi-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: 1rem; align-items: center; padding: .75rem 1rem; border: 1px solid #e4ebef; border-radius: .75rem; }
+@media (max-width: 767.98px) {
+    .gpa-row, .kondisi-row { grid-template-columns: 1fr; }
+}
