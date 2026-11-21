@@ -84,52 +84,19 @@ class Rujukan_masuk extends Web_Controller
     public function detail($id = '')
     {
         $patient = $this->load_kunjungan($id);
-        $id = (int) $patient['id_kunjungan'];
 
-        $gpa = $this->obstetri->find_gpa($id);
-        $riwayat = $this->obstetri->riwayat($id);
-        $kondisi_ibu = $this->obstetri->kondisi_ibu($id);
-        $pilihan_map = $this->obstetri->pilihan_map();
-        $observasi = $this->observasi->listing($id);
-        $observasi_terakhir = $observasi ? $observasi[0] : null;
+        // Data ringkasan disusun library yang sama dengan dokumen PDF.
+        $this->load->library('ringkasan_rujukan');
+        $data = $this->ringkasan_rujukan->build($patient);
 
-        $diagnosis = $this->stabilisasi->diagnosis_kunjungan($id);
-        $items = $this->stabilisasi->items(array_keys($diagnosis));
-        $pelaksanaan = $this->stabilisasi->pelaksanaan($id);
-        $trigger_merah = $this->stabilisasi->trigger_merah($id);
-        $ringkasan = $this->stabilisasi->ringkasan($items, $pelaksanaan, $trigger_merah, time());
-
-        $flags = array_merge(
-            $this->meows->flags($observasi_terakhir),
-            $ringkasan['peringatan'],
-            $this->obstetri->analisis($gpa, $riwayat, $kondisi_ibu, $pilihan_map, $patient['tgl_reg'])
-        );
-
-        $this->render('web/rujukan/detail', [
+        $this->render('web/rujukan/detail', array_merge($data, [
             'page_title' => 'Rujukan · ' . $patient['nama'],
             'active_menu' => 'rujukan',
             'patient' => $patient,
             'peran' => $this->akses->peran($patient),
             'boleh_terima' => $this->akses->can_receive($patient),
-            'boleh_tiba' => $this->akses->can_record_arrival($patient),
-            'status_rujukan' => $this->config->item('status_rujukan'),
-            'target_tiba_menit' => (int) $this->config->item('target_tiba_menit'),
-            'gpa' => $gpa,
-            'riwayat' => $riwayat,
-            'riwayat_options' => $this->config->item('riwayat_options'),
-            'kondisi_ibu' => $kondisi_ibu,
-            'pilihan_map' => $pilihan_map,
-            'observasi' => $observasi,
-            'observasi_terakhir' => $observasi_terakhir,
-            'observasi_terakhir_hasil' => $observasi_terakhir ? $this->meows->hitung($observasi_terakhir) : null,
-            'meows_rules' => $this->meows->rules(),
-            'diagnosis' => $diagnosis,
-            'stabilisasi_items' => $items,
-            'pelaksanaan' => $pelaksanaan,
-            'stabilisasi_ringkasan' => $ringkasan,
-            'stabilisasi_komponen' => $this->config->item('stabilisasi_komponen'),
-            'flags' => $flags
-        ]);
+            'boleh_tiba' => $this->akses->can_record_arrival($patient)
+        ]));
     }
 
     public function terima($id = '')

@@ -735,6 +735,63 @@ class Rm_detail extends Web_Controller
         $this->redirect_tab($id, 'identitas');
     }
 
+    /**
+     * Ringkasan rujukan (SBAR) dalam PDF; ?unduh=1 untuk mengunduh, selain itu dibuka di browser.
+     */
+    public function pdf($id = '')
+    {
+        $patient = $this->load_patient($id);
+
+        $this->load->library('ringkasan_rujukan');
+        $data = $this->ringkasan_rujukan->build($patient);
+        $data['patient'] = $patient;
+        $data['dicetak_oleh'] = $this->web_user['nama'] ?: $this->web_user['username'];
+
+        $html = $this->load->view('web/pdf/ringkasan_rujukan', $data, true);
+
+        $cache = APPPATH . 'cache/dompdf';
+        if (!is_dir($cache)) {
+            mkdir($cache, 0775, true);
+        }
+
+        $options = new \Dompdf\Options();
+        // Sumber eksternal dimatikan: dokumen hanya boleh berisi data dari aplikasi ini.
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('fontCache', $cache);
+        $options->set('tempDir', $cache);
+        $options->set('chroot', FCPATH);
+
+        // Peringatan deprecated dompdf di PHP terbaru tidak boleh tercetak ke dalam berkas PDF.
+        $level = error_reporting();
+        error_reporting($level & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
+        try {
+            $dompdf = new \Dompdf\Dompdf($options);
+            $dompdf->loadHtml($html, 'UTF-8');
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+
+            $canvas = $dompdf->getCanvas();
+            $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans');
+            $canvas->page_text(40, 815, 'EMNIRA · Ringkasan rujukan ' . $patient['nama'], $font, 7, [0.48, 0.55, 0.6]);
+            $canvas->page_text(500, 815, 'Halaman {PAGE_NUM} dari {PAGE_COUNT}', $font, 7, [0.48, 0.55, 0.6]);
+
+            $pdf = $dompdf->output();
+        } finally {
+            error_reporting($level);
+        }
+
+        $slug = trim(preg_replace('/[^A-Za-z0-9]+/', '-', $patient['nama'] ?: 'pasien'), '-');
+        $nama_file = 'Rujukan-' . preg_replace('/[^A-Za-z0-9]+/', '', (string) $patient['no_rm']) . '-' . $slug . '-' . date('Ymd') . '.pdf';
+        $disposisi = $this->input->get('unduh') === '1' ? 'attachment' : 'inline';
+
+        $this->output
+            ->set_content_type('application/pdf')
+            ->set_header('Content-Disposition: ' . $disposisi . '; filename="' . $nama_file . '"')
+            ->set_output($pdf);
+    }
+
     public function batal_kirim($id = '')
     {
         $this->require_post();

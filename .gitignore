@@ -38,3 +38,6 @@ Thumbs.db
 Desktop.ini
 index.php
 !/application/views/**/index.php
+
+# Cache font dompdf (dibuat otomatis saat PDF pertama dibuat)
+/application/cache/dompdf/

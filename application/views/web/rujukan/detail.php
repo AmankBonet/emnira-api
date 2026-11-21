@@ -20,7 +20,8 @@ $jam = function ($value) {
 };
 
 $selisih_menit = function ($dari, $sampai) {
-    return $dari && $sampai ? (int) floor((strtotime($sampai) - strtotime($dari)) / 60) : null;
+    // Waktu tiba hanya sampai menit; selisih di menit yang sama tidak boleh tampil negatif.
+    return $dari && $sampai ? max(0, (int) floor((strtotime($sampai) - strtotime($dari)) / 60)) : null;
 };
 
 $durasi = function ($menit) {
@@ -31,14 +32,7 @@ $durasi = function ($menit) {
     return $menit >= 60 ? floor($menit / 60) . ' jam ' . ($menit % 60) . ' mnt' : $menit . ' mnt';
 };
 
-$umur = '—';
-if ($patient['tgl_lahir']) {
-    $lahir = DateTime::createFromFormat('!Y-m-d', $patient['tgl_lahir']);
-    $acuan = DateTime::createFromFormat('!Y-m-d', $patient['tgl_reg'] ?: date('Y-m-d'));
-    if ($lahir && $acuan && $lahir <= $acuan) {
-        $umur = $lahir->diff($acuan)->y . ' tahun';
-    }
-}
+// $umur disediakan libraries/Ringkasan_rujukan.php.
 
 $zona_class = [
     'normal' => 'success',
@@ -58,57 +52,10 @@ $menit_tempuh = $patient['waktu_tiba']
     ? $selisih_menit($patient['waktu_dikirim'], $patient['waktu_tiba'])
     : $selisih_menit($patient['waktu_dikirim'], date('Y-m-d H:i:s'));
 
-// R: tindakan stabilisasi tersimpan, dipisah menjadi yang dilakukan dan yang belum.
-$dilakukan = [];
-$belum = [];
-$kriteria = [];
-$alternatif_selesai = [];
-
-foreach ($stabilisasi_items as $id_item => $item) {
-    $row = isset($pelaksanaan[$id_item]) ? $pelaksanaan[$id_item] : null;
-    // Kelompok alternatif dianggap tertangani bila salah satu anggotanya dilakukan atau sedang berjalan.
-    if ($item['sifat'] === 'alternatif' && $row && in_array($row['status'], ['dilakukan', 'dalam_proses'], true)) {
-        $alternatif_selesai[$item['kelompok_alternatif']] = true;
-    }
-}
-
-foreach ($stabilisasi_items as $id_item => $item) {
-    $row = isset($pelaksanaan[$id_item]) ? $pelaksanaan[$id_item] : null;
-    $status_item = $row ? $row['status'] : 'belum';
-
-    if ($item['jenis'] === 'kriteria') {
-        if ($status_item === 'terpenuhi') {
-            $kriteria[] = $item['teks_standar'] . ($row['detail_tindakan'] ? ' (' . $row['detail_tindakan'] . ')' : '');
-        }
-
-        continue;
-    }
-
-    if (in_array($status_item, ['dilakukan', 'dalam_proses'], true)) {
-        $dilakukan[] = [
-            'waktu' => $row['waktu_pelaksanaan'],
-            'teks' => $row['detail_tindakan'] ?: $item['teks_standar'],
-            'proses' => $status_item === 'dalam_proses'
-        ];
-
-        continue;
-    }
-
-    // Yang perlu diketahui faskes tujuan: tindakan wajib/alternatif yang belum terlaksana.
-    $perlu = $item['sifat'] === 'wajib'
-        || ($item['sifat'] === 'alternatif' && empty($alternatif_selesai[$item['kelompok_alternatif']]));
-    if ($perlu && $status_item !== 'tidak_diperlukan') {
-        $belum[] = [
-            'teks' => $item['teks_standar'],
-            'alasan' => $row ? $row['alasan'] : null,
-            'status' => $status_item
-        ];
-    }
-}
-
-usort($dilakukan, function ($a, $b) {
-    return strcmp($a['waktu'] ?: '9999', $b['waktu'] ?: '9999');
-});
+// R: dipisah oleh libraries/Ringkasan_rujukan.php (sama dengan isi dokumen PDF).
+$dilakukan = $sbar['dilakukan'];
+$belum = $sbar['belum'];
+$kriteria = $sbar['kriteria'];
 
 // Tren MEOWS: maksimal 12 observasi terakhir, urut waktu.
 $tren = array_reverse(array_slice($observasi, 0, 12));
@@ -328,7 +275,11 @@ $skor_maks = max(10, $tren ? max(array_map('intval', array_column($tren, 'meows_
             </div>
         </section>
 
-        <a class="btn btn-sm btn-outline-secondary" href="<?= html_escape(site_url('web/rm/' . $id)) ?>">Lihat rekam medis lengkap (baca saja)</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm btn-primary" href="<?= html_escape(site_url('web/rm/' . $id . '/pdf')) ?>" target="_blank" rel="noopener">Buka PDF</a>
+            <a class="btn btn-sm btn-outline-primary" href="<?= html_escape(site_url('web/rm/' . $id . '/pdf?unduh=1')) ?>">Unduh PDF</a>
+            <a class="btn btn-sm btn-outline-secondary" href="<?= html_escape(site_url('web/rm/' . $id)) ?>">Lihat rekam medis lengkap (baca saja)</a>
+        </div>
     </div>
 
     <aside class="sbar-aside">

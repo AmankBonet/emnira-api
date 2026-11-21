@@ -55,7 +55,7 @@ $route['translate_uri_dashes'] = FALSE;
 
 // Halaman entri rekam medis per kunjungan pasien.
 $route['web/rm/(:num)'] = 'web/rm_detail/index/$1';
-$route['web/rm/(:num)/(save_gpa|save_riwayat|save_kondisi|save_vital|save_diagnosis|save_stabilisasi|kirim|batal_kirim)'] = 'web/rm_detail/$2/$1';
+$route['web/rm/(:num)/(save_gpa|save_riwayat|save_kondisi|save_vital|save_diagnosis|save_stabilisasi|kirim|batal_kirim|pdf)'] = 'web/rm_detail/$2/$1';
 $route['web/rm/(:num)/delete_vital/(:num)'] = 'web/rm_detail/delete_vital/$1/$2';
 
 // Rujukan masuk untuk faskes tujuan.

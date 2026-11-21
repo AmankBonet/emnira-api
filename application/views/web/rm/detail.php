@@ -194,6 +194,7 @@ $fakta = [
                 <?php if ($akses_rm['peran'] === 'tujuan'): ?>
                     <a class="btn btn-sm btn-outline-primary" href="<?= html_escape(site_url('web/rujukan/' . $id)) ?>">Ringkasan SBAR</a>
                 <?php endif; ?>
+                <a class="btn btn-sm btn-outline-secondary" href="<?= html_escape(site_url('web/rm/' . $id . '/pdf')) ?>" target="_blank" rel="noopener" title="Buka ringkasan rujukan dalam PDF">PDF</a>
             </div>
         </section>
 
