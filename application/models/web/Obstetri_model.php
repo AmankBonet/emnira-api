@@ -7,7 +7,7 @@ class Obstetri_model extends CI_Model
     public function pilihan($kelompok)
     {
         return $this->db
-            ->select('kode, kelompok, label, tingkat_risiko, rekomendasi')
+            ->select('kode, kelompok, kategori_klinis, label, tingkat_risiko, dampak_risiko, rekomendasi, kode_icd10, wajib_catatan')
             ->where('kelompok', $kelompok)
             ->where('id_active', 1)
             ->order_by('urutan', 'ASC')
@@ -19,7 +19,7 @@ class Obstetri_model extends CI_Model
     public function pilihan_map()
     {
         $rows = $this->db
-            ->select('kode, kelompok, label, tingkat_risiko, rekomendasi')
+            ->select('kode, kelompok, kategori_klinis, label, tingkat_risiko, dampak_risiko, rekomendasi, kode_icd10, wajib_catatan')
             ->get('m_obstetri_pilihan')
             ->result_array();
 
@@ -67,9 +67,14 @@ class Obstetri_model extends CI_Model
 
     public function kondisi_ibu($id_kunjungan)
     {
+        // Urutan mengikuti nomor pada master agar ringkasan sesuai checklist.
         $rows = $this->db
-            ->select('kode_pilihan, catatan')
-            ->get_where('t_kunjungan_kondisi_ibu', ['id_kunjungan' => $id_kunjungan])
+            ->select('k.kode_pilihan, k.catatan')
+            ->from('t_kunjungan_kondisi_ibu k')
+            ->join('m_obstetri_pilihan p', 'p.kode = k.kode_pilihan', 'left')
+            ->where('k.id_kunjungan', $id_kunjungan)
+            ->order_by('p.urutan', 'ASC')
+            ->get()
             ->result_array();
 
         return array_column($rows, 'catatan', 'kode_pilihan');
@@ -155,12 +160,27 @@ class Obstetri_model extends CI_Model
     }
 
     /**
-     * Menyusun penanda kewaspadaan dari GPA dan riwayat kehamilan.
+     * Menyusun penanda kewaspadaan dari kondisi ibu, GPA, dan riwayat kehamilan.
      * Hasil hanya informasi untuk tenaga kesehatan, bukan keputusan klinis.
      */
-    public function analisis($gpa, array $riwayat, array $pilihan_map, $tgl_reg)
+    public function analisis($gpa, array $riwayat, array $kondisi_ibu, array $pilihan_map, $tgl_reg)
     {
         $flags = [];
+
+        // Komorbid ibu tetap ditampilkan walaupun GPA belum diisi.
+        foreach ($kondisi_ibu as $kode => $catatan) {
+            if (!isset($pilihan_map[$kode]) || $pilihan_map[$kode]['tingkat_risiko'] === 'normal') {
+                continue;
+            }
+
+            $pilihan = $pilihan_map[$kode];
+            $flags[] = [
+                'level' => $pilihan['tingkat_risiko'],
+                'text' => 'Komorbid: ' . $pilihan['label']
+                    . ($pilihan['kode_icd10'] ? ' [' . $pilihan['kode_icd10'] . ']' : '')
+                    . ($catatan ? ' — ' . $catatan : '')
+            ];
+        }
 
         if (!$gpa) {
             return $flags;

@@ -32,13 +32,48 @@ $tab_status = [
     'identitas' => null,
     'obstetri' => $gpa ? $gpa['kode_gpa'] : 'Belum',
     'riwayat' => $gpa ? ($jumlah_riwayat > 0 ? $riwayat_terisi . '/' . $jumlah_riwayat : '—') : null,
-    'kondisi' => $kondisi_ibu ? count($kondisi_ibu) : null
+    'kondisi' => $kondisi_ibu ? count($kondisi_ibu) : null,
+    'vital' => $observasi_terakhir && $observasi_terakhir['meows_zona'] !== null
+        ? 'MEOWS ' . (int) $observasi_terakhir['meows_skor']
+        : null,
+    'stabilisasi' => $stabilisasi_ringkasan['persen'] !== null
+        ? $stabilisasi_ringkasan['persen'] . '%'
+        : null
+];
+
+$meows_badge = [
+    'normal' => 'success',
+    'kuning' => 'warning',
+    'merah' => 'danger'
 ];
 
 $flag_class = [
     'bahaya' => 'danger',
     'risiko' => 'warning',
     'data' => 'info'
+];
+
+// Penanda paling berbahaya ditampilkan lebih dulu; sisanya dilipat agar form tidak tertimbun.
+$flag_order = [
+    'bahaya' => 0,
+    'risiko' => 1,
+    'data' => 2
+];
+usort($flags, function ($a, $b) use ($flag_order) {
+    return $flag_order[$a['level']] - $flag_order[$b['level']];
+});
+$flags_tampil = array_slice($flags, 0, 3);
+$flags_lain = array_slice($flags, 3);
+$jumlah_bahaya = count(array_filter($flags, function ($flag) {
+    return $flag['level'] === 'bahaya';
+}));
+
+$fakta = [
+    'Status obstetri' => $gpa ? $gpa['kode_gpa'] : ($patient['status_obstetri'] ?: '—'),
+    'Usia kehamilan' => $patient['usia_kehamilan'] ?: '—',
+    'HPL' => $format_date($patient['hpl']),
+    'Faskes perujuk' => $patient['nama_faskes_perujuk'] ?: '—',
+    'Faskes tujuan' => $patient['nama_faskes_tujuan'] ?: '—'
 ];
 ?>
 <nav aria-label="breadcrumb" class="mb-3">
@@ -48,80 +83,100 @@ $flag_class = [
     </ol>
 </nav>
 
-<section class="card shadow-sm mb-4" aria-label="Ringkasan pasien">
-    <div class="card-body p-4 d-flex flex-wrap gap-4 align-items-start justify-content-between">
-        <div class="d-flex gap-3 align-items-center">
-            <span class="user-avatar patient-avatar" aria-hidden="true"><?= html_escape(mb_strtoupper(mb_substr((string) $patient['nama'], 0, 1))) ?></span>
-            <div>
-                <h1 class="h4 fw-bold mb-1"><?= html_escape($patient['nama'] ?: '—') ?></h1>
-                <div class="text-secondary small">
-                    RM <?= html_escape($patient['no_rm'] ?: '—') ?>
-                    · <?= html_escape($umur) ?>
-                    · Registrasi <?= html_escape($format_date($patient['tgl_reg'])) ?>
+<div class="rm-layout">
+    <aside class="rm-aside">
+        <section class="card shadow-sm rm-patient" aria-label="Ringkasan pasien">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-center mb-3">
+                    <span class="user-avatar" aria-hidden="true"><?= html_escape(mb_strtoupper(mb_substr((string) $patient['nama'], 0, 1))) ?></span>
+                    <div class="min-w-0">
+                        <h1 class="h6 fw-bold mb-0 text-truncate"><?= html_escape($patient['nama'] ?: '—') ?></h1>
+                        <div class="text-secondary small">RM <?= html_escape($patient['no_rm'] ?: '—') ?> · <?= html_escape($umur) ?></div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <dl class="patient-facts mb-0">
-            <div>
-                <dt>Status obstetri</dt>
-                <dd><?= html_escape($gpa ? $gpa['kode_gpa'] : ($patient['status_obstetri'] ?: '—')) ?></dd>
-            </div>
-            <div>
-                <dt>Usia kehamilan</dt>
-                <dd><?= html_escape($patient['usia_kehamilan'] ?: '—') ?></dd>
-            </div>
-            <div>
-                <dt>HPL</dt>
-                <dd><?= html_escape($format_date($patient['hpl'])) ?></dd>
-            </div>
-            <div>
-                <dt>Rujukan</dt>
-                <dd><?= html_escape($patient['nama_faskes_perujuk'] ?: '—') ?> → <?= html_escape($patient['nama_faskes_tujuan'] ?: '—') ?></dd>
-            </div>
-        </dl>
-    </div>
 
-    <?php if ($flags): ?>
-        <div class="border-top px-4 py-3" role="region" aria-label="Kewaspadaan medis">
-            <div class="small fw-semibold text-secondary mb-2">KEWASPADAAN</div>
-            <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
-                <?php foreach ($flags as $flag): ?>
-                    <li class="flag flag-<?= $flag_class[$flag['level']] ?>"><?= html_escape($flag['text']) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-    <?php endif; ?>
-</section>
-
-<ul class="nav nav-tabs rm-tabs" role="tablist">
-    <?php foreach ($tabs as $key => $label): ?>
-        <li class="nav-item">
-            <a class="nav-link <?= $tab === $key ? 'active' : '' ?>" <?= $tab === $key ? 'aria-current="page"' : '' ?> href="<?= html_escape(site_url('web/rm/' . $id) . '?tab=' . $key) ?>">
-                <?= html_escape($label) ?>
-                <?php if ($tab_status[$key] !== null): ?>
-                    <span class="badge rounded-pill text-bg-light border ms-1"><?= html_escape($tab_status[$key]) ?></span>
+                <?php if ($observasi_terakhir && $observasi_terakhir['meows_zona'] !== null): ?>
+                    <div class="rm-meows rm-meows-<?= $meows_badge[$observasi_terakhir['meows_zona']] ?>">
+                        <span>MEOWS terakhir</span>
+                        <strong><?= (int) $observasi_terakhir['meows_skor'] ?></strong>
+                        <em><?= html_escape(ucfirst($observasi_terakhir['meows_zona'])) ?></em>
+                    </div>
                 <?php endif; ?>
-            </a>
-        </li>
-    <?php endforeach; ?>
-</ul>
 
-<div class="card shadow-sm rm-tab-card">
-    <?php if ($form_state && $form_state['errors']): ?>
-        <div class="alert alert-danger m-4 mb-0" role="alert">
-            <ul class="mb-0">
-                <?php foreach ($form_state['errors'] as $error): ?>
-                    <li><?= html_escape($error) ?></li>
-                <?php endforeach; ?>
-            </ul>
+                <dl class="rm-facts mb-0">
+                    <?php foreach ($fakta as $label => $value): ?>
+                        <dt><?= html_escape($label) ?></dt>
+                        <dd><?= html_escape($value) ?></dd>
+                    <?php endforeach; ?>
+                </dl>
+            </div>
+        </section>
+
+        <nav class="rm-steps" aria-label="Langkah rekam medis">
+            <?php $nomor = 0; ?>
+            <?php foreach ($tabs as $key => $label): ?>
+                <?php
+                $nomor++;
+                $status = $tab_status[$key];
+                $terisi = $key === 'identitas' || ($status !== null && $status !== 'Belum');
+                ?>
+                <a class="rm-step <?= $tab === $key ? 'active' : '' ?> <?= $terisi ? 'is-done' : '' ?>" <?= $tab === $key ? 'aria-current="page"' : '' ?> href="<?= html_escape(site_url('web/rm/' . $id) . '?tab=' . $key) ?>">
+                    <span class="rm-step-no" aria-hidden="true"><?= $terisi && $tab !== $key ? '✓' : $nomor ?></span>
+                    <span class="rm-step-label"><?= html_escape($label) ?></span>
+                    <?php if ($status !== null && $key !== 'identitas'): ?>
+                        <span class="rm-step-status"><?= html_escape($status) ?></span>
+                    <?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+    </aside>
+
+    <div class="rm-main">
+        <?php if ($flags): ?>
+            <section class="rm-alerts mb-3" aria-label="Kewaspadaan medis">
+                <div class="rm-alerts-head">
+                    <span class="fw-semibold">Kewaspadaan</span>
+                    <?php if ($jumlah_bahaya): ?>
+                        <span class="badge text-bg-danger"><?= $jumlah_bahaya ?> bahaya</span>
+                    <?php endif; ?>
+                    <span class="badge text-bg-light border"><?= count($flags) ?> penanda</span>
+                </div>
+                <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
+                    <?php foreach ($flags_tampil as $flag): ?>
+                        <li class="flag flag-<?= $flag_class[$flag['level']] ?>"><?= html_escape($flag['text']) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php if ($flags_lain): ?>
+                    <details class="mt-1">
+                        <summary class="small text-secondary">Tampilkan <?= count($flags_lain) ?> penanda lainnya</summary>
+                        <ul class="list-unstyled d-flex flex-column gap-1 mt-1 mb-0">
+                            <?php foreach ($flags_lain as $flag): ?>
+                                <li class="flag flag-<?= $flag_class[$flag['level']] ?>"><?= html_escape($flag['text']) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </details>
+                <?php endif; ?>
+            </section>
+        <?php endif; ?>
+
+        <div class="card shadow-sm rm-tab-card">
+            <?php if ($form_state && $form_state['errors']): ?>
+                <div class="alert alert-danger m-4 mb-0" role="alert">
+                    <ul class="mb-0">
+                        <?php foreach ($form_state['errors'] as $error): ?>
+                            <li><?= html_escape($error) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
+            <?php $this->load->view('web/rm/tabs/' . $tab, [
+                'id' => $id,
+                'state_data' => $state_data,
+                'format_date' => $format_date,
+                'umur' => $umur,
+                'jumlah_riwayat' => $jumlah_riwayat
+            ]); ?>
         </div>
-    <?php endif; ?>
-
-    <?php $this->load->view('web/rm/tabs/' . $tab, [
-        'id' => $id,
-        'state_data' => $state_data,
-        'format_date' => $format_date,
-        'umur' => $umur,
-        'jumlah_riwayat' => $jumlah_riwayat
-    ]); ?>
+    </div>
 </div>

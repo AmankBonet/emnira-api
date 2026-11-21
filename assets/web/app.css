@@ -23,25 +23,157 @@ body { background: #f4f7fa; color: #243746; }
     .workspace { margin-left: 250px; }
 }
 
-/* Halaman rekam medis pasien */
-.patient-avatar { width: 52px; height: 52px; font-size: 1.25rem; }
-.patient-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem 2rem; min-width: min(100%, 520px); }
-.patient-facts dt { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: #617382; font-weight: 600; }
-.patient-facts dd { margin: 0; font-weight: 600; }
-.flag { padding: .35rem .75rem; border-radius: .5rem; font-size: .875rem; border-left: 4px solid; }
+/* Warna aksen mengikuti teal aplikasi, bukan biru bawaan Bootstrap. */
+.btn-outline-primary { --bs-btn-color: #087f78; --bs-btn-border-color: #9fd3cd; --bs-btn-hover-bg: #e6f4f1; --bs-btn-hover-color: #065f59; --bs-btn-hover-border-color: #087f78; --bs-btn-active-bg: #087f78; --bs-btn-active-border-color: #087f78; --bs-btn-active-color: #fff; }
+.breadcrumb a { color: var(--app-teal); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.min-w-0 { min-width: 0; }
+
+/* =========================================================================
+   Halaman rekam medis: kolom kiri (pasien + langkah) dan kolom konten.
+   ========================================================================= */
+.rm-layout { display: grid; grid-template-columns: 260px minmax(0, 960px); gap: 1.25rem; align-items: start; }
+.rm-aside { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: .75rem; }
+/* Item grid default min-width:auto membuat halaman melebar di layar sempit. */
+.rm-aside, .rm-main { min-width: 0; }
+
+/* Kartu ringkas pasien */
+.rm-patient .user-avatar { width: 42px; height: 42px; font-size: 1.1rem; }
+.rm-meows { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 .5rem; padding: .5rem .75rem; margin-bottom: .75rem; border-radius: .6rem; }
+.rm-meows span { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.rm-meows strong { grid-row: span 2; font-size: 1.5rem; line-height: 1; }
+.rm-meows em { font-style: normal; font-size: .8rem; font-weight: 600; }
+.rm-meows-danger { background: #fdecee; color: #842029; }
+.rm-meows-warning { background: #fff7e0; color: #664d03; }
+.rm-meows-success { background: #e7f5ee; color: #0f5132; }
+.rm-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .3rem .75rem; font-size: .8rem; }
+.rm-facts dt { color: #7a8c99; font-weight: 500; }
+.rm-facts dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+
+/* Navigasi langkah */
+.rm-steps { display: flex; flex-direction: column; gap: 2px; padding: .4rem; background: #fff; border: 1px solid #e4ebef; border-radius: 1rem; box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .075); }
+.rm-step { display: flex; align-items: center; gap: .6rem; padding: .55rem .6rem; border-radius: .65rem; color: #4b5f6d; text-decoration: none; font-size: .875rem; }
+.rm-step:hover { background: #f4f7fa; color: #243746; }
+.rm-step.active { background: #e6f4f1; color: #065f59; font-weight: 600; }
+.rm-step-no { width: 24px; height: 24px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid #c5d3dc; font-size: .75rem; font-weight: 700; color: #7a8c99; }
+.rm-step.is-done .rm-step-no { background: #e7f5ee; border-color: #8fd1ad; color: #198754; }
+.rm-step.active .rm-step-no { background: var(--app-teal); border-color: var(--app-teal); color: #fff; }
+.rm-step-label { flex: 1; min-width: 0; }
+.rm-step-status { font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; background: #f1f4f6; color: #4b5f6d; white-space: nowrap; }
+
+/* Panel kewaspadaan ringkas */
+.rm-alerts { padding: .75rem 1rem; background: #fff; border: 1px solid #e4ebef; border-radius: 1rem; box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .075); }
+.rm-alerts-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; font-size: .9rem; }
+.rm-alerts summary { cursor: pointer; padding: .15rem 0; }
+.flag { padding: .3rem .65rem; border-radius: .45rem; font-size: .82rem; border-left: 3px solid; }
 .flag-danger { background: #fdecee; border-color: #dc3545; color: #842029; }
 .flag-warning { background: #fff7e0; border-color: #e0a800; color: #664d03; }
 .flag-info { background: #e8f4fb; border-color: #3d8bd4; color: #084264; }
-.rm-tabs { border-bottom: 0; flex-wrap: nowrap; overflow-x: auto; }
-.rm-tabs .nav-link { color: #4b5f6d; white-space: nowrap; }
-.rm-tabs .nav-link.active { color: var(--app-teal); font-weight: 600; }
-.rm-tab-card { border-top-left-radius: 0; }
-.gpa-row { display: grid; grid-template-columns: minmax(0, 1fr) 170px minmax(0, 1fr); gap: 1rem; align-items: center; padding: .75rem 1rem; border: 1px solid #e4ebef; border-radius: .75rem; }
+
+/* Kartu konten: jarak dan ukuran input dibuat lebih rapat. */
+.rm-tab-card .p-4 { padding: 1.25rem 1.5rem !important; }
+.rm-tab-card .card-footer { position: sticky; bottom: 0; z-index: 2; border-top: 1px solid #e4ebef; border-radius: 0 0 1rem 1rem; }
+.rm-tab-card h2.h5 { font-size: 1.05rem; font-weight: 650; }
+.rm-tab-card h3.h6 { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #617382 !important; }
+.rm-tab-card .form-label { font-size: .8rem; font-weight: 500; color: #4b5f6d; margin-bottom: .25rem; }
+.rm-tab-card .form-control,
+.rm-tab-card .form-select { font-size: .875rem; padding-top: .3rem; padding-bottom: .3rem; border-radius: .5rem; }
+.rm-tab-card .form-control { padding-left: .6rem; padding-right: .6rem; }
+.rm-tab-card .form-select { padding-left: .6rem; }
+.rm-tab-card .input-group-text { font-size: .8rem; padding: .3rem .55rem; color: #617382; background: #f7f9fb; }
+.rm-tab-card .input-group > :not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.rm-tab-card .input-group > :not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.rm-tab-card .btn-outline-warning { --bs-btn-color: #8a6100; --bs-btn-border-color: #f0cf73; --bs-btn-hover-bg: #fff7e0; --bs-btn-hover-color: #664d03; --bs-btn-active-bg: #e0a800; --bs-btn-active-border-color: #e0a800; --bs-btn-active-color: #fff; }
+.rm-tab-card .table > :not(caption) > * > * { padding: .55rem .6rem; font-size: .85rem; }
+.rm-tab-card .alert { font-size: .875rem; padding: .6rem .9rem; border-radius: .65rem; }
+/* Kuning bawaan Bootstrap terlalu terang untuk teks di atas latar putih. */
+.rm-tab-card .text-warning { color: #8a6100 !important; }
+.rm-tab-card .form-check-input:checked { background-color: var(--app-teal); border-color: var(--app-teal); }
+.rm-tab-card .form-check-input:focus, .rm-tab-card .form-control:focus, .rm-tab-card .form-select:focus { border-color: #5fb3aa; box-shadow: 0 0 0 .2rem rgba(8, 127, 120, .15); }
+
+@media (max-width: 1199.98px) {
+    .rm-layout { grid-template-columns: minmax(0, 1fr); }
+    .rm-aside { position: static; }
+    .rm-steps { flex-direction: row; overflow-x: auto; }
+    .rm-step { flex-shrink: 0; }
+}
+
+/* Tab status obstetri, riwayat, dan kondisi ibu */
+.gpa-row { display: grid; grid-template-columns: minmax(0, 1fr) 140px minmax(0, 1fr); gap: 1rem; align-items: center; padding: .6rem .9rem; border: 1px solid #e4ebef; border-radius: .75rem; }
 .stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper input { -moz-appearance: textfield; }
-.riwayat-card { border: 1px solid #e4ebef; border-radius: .75rem; padding: 1rem 1.25rem 1.25rem; }
-.riwayat-head { float: none; width: auto; font-size: 1rem; padding: 0 .5rem; margin-bottom: .5rem; }
-.kondisi-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: 1rem; align-items: center; padding: .75rem 1rem; border: 1px solid #e4ebef; border-radius: .75rem; }
+.riwayat-card { border: 1px solid #e4ebef; border-radius: .75rem; padding: .75rem 1rem 1rem; }
+.riwayat-head { float: none; width: auto; font-size: .95rem; padding: 0 .4rem; margin-bottom: .25rem; }
+.kondisi-item { border: 1px solid #e4ebef; border-radius: .75rem; padding: .6rem .9rem; }
+.kondisi-item.is-checked { border-color: #e0a800; background: #fffcf2; }
+.kondisi-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 330px); gap: 1rem; align-items: center; }
+/* Kolom ICD-10 dibuat tetap agar kotak catatan sejajar di setiap baris. */
+.kondisi-row > div:last-child { display: grid !important; grid-template-columns: 112px minmax(0, 1fr); }
+.kondisi-row > div:last-child .badge { justify-self: start; }
+.kondisi-detail { display: none; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin-top: .6rem; padding-top: .6rem; border-top: 1px dashed #e4ebef; }
+.kondisi-item.is-checked .kondisi-detail { display: grid; }
+.kondisi-detail dt { color: #617382; font-weight: 600; }
+.kondisi-detail dd { margin: 0; }
+.kondisi-summary { padding: .6rem .9rem; border-radius: .75rem; background: #fff7e0; font-size: .875rem; }
 @media (max-width: 767.98px) {
     .gpa-row, .kondisi-row { grid-template-columns: 1fr; }
 }
+
+/* Tab tanda vital & MEOWS */
+.vital-head, .vital-row { grid-template-columns: minmax(0, 1fr) 170px 36px 118px; gap: .75rem; align-items: center; }
+.vital-head { padding: 0 .9rem .25rem; }
+.vital-row { display: grid; padding: .45rem .9rem; border: 1px solid #e4ebef; border-left-width: 4px; border-radius: .65rem; }
+.vital-row label { font-size: .875rem; }
+.vital-row .small { font-size: .75rem; }
+.vital-row[data-zona="normal"] { border-left-color: #198754; }
+.vital-row[data-zona="kuning"] { border-left-color: #e0a800; background: #fffcf2; }
+.vital-row[data-zona="merah"] { border-left-color: #dc3545; background: #fdf3f4; }
+.meows-total { min-width: 200px; padding: .6rem .9rem; border: 1px solid #e4ebef; border-radius: .75rem; }
+.meows-total[data-zona="merah"] { border-color: #dc3545; background: #fdf3f4; }
+.meows-total[data-zona="kuning"] { border-color: #e0a800; background: #fffcf2; }
+.derived-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .6rem; }
+.derived-grid > div { display: flex; flex-direction: column; gap: .1rem; padding: .6rem .8rem; border: 1px solid #e4ebef; border-radius: .65rem; font-size: .875rem; }
+.derived-grid span { font-size: .7rem; color: #617382; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.derived-grid small { color: #8395a3; font-size: .72rem; }
+@media (max-width: 767.98px) {
+    .vital-row { grid-template-columns: 1fr 1fr; }
+    .vital-row > div:first-child, .vital-row > .input-group { grid-column: 1 / -1; }
+}
+
+/* Tab stabilisasi pra-rujukan: teks protokol di atas, isian dalam satu baris di bawahnya. */
+.stab-stat { display: flex; flex-direction: column; gap: .3rem; height: 100%; padding: .75rem .9rem; border: 1px solid #e4ebef; border-radius: .75rem; }
+.stab-stat > span { font-size: .7rem; color: #617382; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.stab-stat > strong { font-size: 1.25rem; }
+.stab-stat small { color: #8395a3; font-size: .75rem; }
+.stab-stat .progress { height: .45rem; }
+.stab-row { display: flex; flex-direction: column; gap: .6rem; padding: .65rem .9rem; border: 1px solid #e4ebef; border-left-width: 4px; border-radius: .65rem; }
+.stab-row label { font-size: .875rem; }
+.stab-row[data-status="dilakukan"], .stab-row[data-status="tidak_terpenuhi"] { border-left-color: #198754; }
+.stab-row[data-status="dalam_proses"] { border-left-color: #e0a800; background: #fffcf2; }
+.stab-row[data-status="tidak_dilakukan"], .stab-row[data-status="terpenuhi"] { border-left-color: #dc3545; background: #fdf3f4; }
+.stab-row[data-status="tidak_diperlukan"] { border-left-color: #adb5bd; opacity: .8; }
+.stab-controls { display: grid; grid-template-columns: 165px 185px minmax(0, 1fr); gap: .5rem; }
+.stab-controls [data-stab-alasan] { grid-column: 1 / -1; }
+@media (max-width: 767.98px) {
+    .stab-controls { grid-template-columns: 1fr 1fr; }
+    .stab-controls .stab-detail { grid-column: 1 / -1; }
+}
+
+/* Kartu observasi terakhir pada tab tanda vital */
+.meows-last { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: .75rem 1rem; border-radius: .75rem; border: 1px solid; }
+.meows-last-danger { background: #fdf3f4; border-color: #f1aeb5; color: #842029; }
+.meows-last-warning { background: #fffcf2; border-color: #f0cf73; color: #664d03; }
+.meows-last-success { background: #f1f9f4; border-color: #a3cfbb; color: #0f5132; }
+.meows-last-score { display: grid; grid-template-columns: auto auto; align-items: center; gap: 0 .6rem; padding-right: 1rem; border-right: 1px solid currentColor; }
+.meows-last-score span { grid-column: 1 / -1; font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.meows-last-score strong { font-size: 2rem; line-height: 1; }
+.meows-last-score em { font-style: normal; font-weight: 700; font-size: .85rem; }
+.meows-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .4rem; }
+.meows-chip { display: flex; flex-direction: column; padding: .4rem .6rem; border-radius: .55rem; border: 1px solid #e4ebef; border-left-width: 3px; font-size: .78rem; }
+.meows-chip span { color: #617382; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meows-chip strong { font-size: .9rem; }
+.meows-chip small { color: #617382; font-size: .7rem; }
+.meows-chip-normal { border-left-color: #198754; }
+.meows-chip-kuning { border-left-color: #e0a800; background: #fffcf2; }
+.meows-chip-merah { border-left-color: #dc3545; background: #fdf3f4; }
+.meows-chip-kosong { border-left-color: #ced4da; color: #8395a3; }

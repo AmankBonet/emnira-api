@@ -16,8 +16,20 @@ class Rm_detail extends Web_Controller
         'identitas' => 'Identitas',
         'obstetri' => 'Status obstetri',
         'riwayat' => 'Riwayat kehamilan',
-        'kondisi' => 'Kondisi medis ibu'
+        'kondisi' => 'Kondisi medis ibu',
+        'vital' => 'Tanda vital & MEOWS',
+        'stabilisasi' => 'Stabilisasi pra-rujukan'
     ];
+
+    // Data obstetri pendukung pada observasi (di luar skor MEOWS): [label, min, max, desimal].
+    private $observasi_angka = [
+        'berat_badan_kg' => ['Berat badan ibu', 20, 300, 2],
+        'tfu_cm' => ['Tinggi fundus uteri', 0, 60, 1],
+        'djj_per_menit' => ['Denyut jantung janin', 0, 250, 0]
+    ];
+
+    // Toleransi jam perangkat yang sedikit berbeda dengan server.
+    const TOLERANSI_WAKTU_DETIK = 300;
 
     private $gpa_fields = [
         'gravida' => 'Gravida',
@@ -37,8 +49,12 @@ class Rm_detail extends Web_Controller
         parent::__construct();
 
         $this->config->load('obstetri');
+        $this->config->load('stabilisasi');
         $this->load->model('web/Kunjungan_model', 'kunjungan');
         $this->load->model('web/Obstetri_model', 'obstetri');
+        $this->load->model('web/Observasi_model', 'observasi');
+        $this->load->model('web/Stabilisasi_model', 'stabilisasi');
+        $this->load->library('meows');
     }
 
     public function index($id = '')
@@ -51,11 +67,45 @@ class Rm_detail extends Web_Controller
 
         $gpa = $this->obstetri->find_gpa($id);
         $riwayat = $this->obstetri->riwayat($id);
+        $kondisi_ibu = $this->obstetri->kondisi_ibu($id);
         $pilihan_map = $this->obstetri->pilihan_map();
+
+        $observasi = $this->observasi->listing($id);
+        $observasi_terakhir = $observasi ? $observasi[0] : null;
+
+        $diagnosis_kunjungan = $this->stabilisasi->diagnosis_kunjungan($id);
+        $stabilisasi_items = $this->stabilisasi->items(array_keys($diagnosis_kunjungan));
+        $pelaksanaan = $this->stabilisasi->pelaksanaan($id);
+        $trigger_merah = $this->stabilisasi->trigger_merah($id);
+        $stabilisasi_ringkasan = $this->stabilisasi->ringkasan(
+            $stabilisasi_items,
+            $pelaksanaan,
+            $trigger_merah,
+            time()
+        );
+
+        // Urutan penanda: MEOWS dan target waktu stabilisasi paling mendesak, lalu riwayat.
+        $flags = $this->obstetri->analisis($gpa, $riwayat, $kondisi_ibu, $pilihan_map, $patient['tgl_reg']);
+        $flags = array_merge(
+            $this->meows_flags($observasi_terakhir),
+            $stabilisasi_ringkasan['peringatan'],
+            $flags
+        );
+
+        $aturan_otomatis = [];
+        foreach ($stabilisasi_items as $id_item => $item) {
+            $aturan_otomatis[$id_item] = $this->stabilisasi->evaluasi_aturan($item['kode_aturan'], $observasi_terakhir);
+        }
 
         $form_state = $this->session->flashdata('rm_detail_form');
         if (!$form_state || $form_state['tab'] !== $tab) {
             $form_state = null;
+        }
+
+        $meows_rules = $this->meows->rules();
+        $ambang = [];
+        foreach (array_keys($meows_rules['parameter']) as $field) {
+            $ambang[$field] = $this->meows->ambang_teks($field);
         }
 
         $this->render('web/rm/detail', [
@@ -66,15 +116,32 @@ class Rm_detail extends Web_Controller
             'tab' => $tab,
             'gpa' => $gpa,
             'riwayat' => $riwayat,
-            'flags' => $this->obstetri->analisis($gpa, $riwayat, $pilihan_map, $patient['tgl_reg']),
+            'flags' => $flags,
+            'observasi' => $observasi,
+            'observasi_terakhir' => $observasi_terakhir,
+            // Zona per parameter untuk kartu observasi terakhir; skor total tetap memakai nilai tersimpan.
+            'observasi_terakhir_hasil' => $observasi_terakhir ? $this->meows->hitung($observasi_terakhir) : null,
+            'meows_rules' => $meows_rules,
+            'meows_ambang' => $ambang,
+            'observasi_pilihan' => $this->config->item('observasi_pilihan'),
             'pilihan_map' => $pilihan_map,
             'pilihan_penyakit' => $this->obstetri->pilihan('penyakit_hamil'),
             'pilihan_komplikasi' => $this->obstetri->pilihan('komplikasi_persalinan_nifas'),
             'pilihan_kondisi_ibu' => $this->obstetri->pilihan('kondisi_ibu'),
-            'kondisi_ibu' => $this->obstetri->kondisi_ibu($id),
+            'kondisi_ibu' => $kondisi_ibu,
             'riwayat_options' => $this->config->item('riwayat_options'),
             'luaran_tanpa_bayi' => $this->config->item('luaran_tanpa_bayi'),
             'max_gravida' => self::MAX_GRAVIDA,
+            'diagnosis_options' => $this->stabilisasi->diagnosis_options(),
+            'diagnosis_kunjungan' => $diagnosis_kunjungan,
+            'stabilisasi_items' => $stabilisasi_items,
+            'pelaksanaan' => $pelaksanaan,
+            'trigger_merah' => $trigger_merah,
+            'stabilisasi_ringkasan' => $stabilisasi_ringkasan,
+            'aturan_otomatis' => $aturan_otomatis,
+            'stabilisasi_komponen' => $this->config->item('stabilisasi_komponen'),
+            'stabilisasi_status' => $this->config->item('stabilisasi_status'),
+            'stabilisasi_status_beralasan' => $this->config->item('stabilisasi_status_beralasan'),
             'form_state' => $form_state,
             'page_scripts' => [
                 'assets/web/rm-detail.js'
@@ -274,6 +341,11 @@ class Rm_detail extends Web_Controller
                 $errors[] = $pilihan_map[$kode]['label'] . ': catatan maksimal 255 karakter.';
             }
 
+            // Contoh: alergi obat tidak berguna tanpa nama obat penyebabnya.
+            if ((int) $pilihan_map[$kode]['wajib_catatan'] === 1 && $catatan === '') {
+                $errors[] = $pilihan_map[$kode]['label'] . ': catatan wajib diisi.';
+            }
+
             $items[$kode] = $catatan === '' ? null : $catatan;
         }
 
@@ -291,6 +363,349 @@ class Rm_detail extends Web_Controller
 
         $this->session->set_flashdata('success', 'Kondisi medis ibu berhasil disimpan.');
         $this->redirect_tab($id, 'kondisi');
+    }
+
+    public function save_vital($id = '')
+    {
+        $this->require_post();
+        $patient = $this->load_patient($id);
+        $id = (int) $patient['id_kunjungan'];
+
+        $rules = $this->meows->rules();
+        $pilihan_pendukung = $this->config->item('observasi_pilihan');
+        $data = [];
+        $errors = [];
+
+        $waktu = $this->input->post('waktu_observasi');
+        $waktu = is_string($waktu) ? trim($waktu) : '';
+        $waktu_obj = DateTime::createFromFormat('!Y-m-d\TH:i', $waktu);
+        $data['waktu_observasi'] = $waktu;
+
+        if (!$waktu_obj || $waktu_obj->format('Y-m-d\TH:i') !== $waktu) {
+            $errors[] = 'Waktu observasi tidak valid.';
+        } elseif ($waktu_obj->getTimestamp() > time() + self::TOLERANSI_WAKTU_DETIK) {
+            $errors[] = 'Waktu observasi tidak boleh melebihi waktu sekarang.';
+        }
+
+        // Parameter MEOWS: angka divalidasi terhadap batas config, pilihan terhadap daftar config.
+        foreach ($rules['parameter'] as $field => $parameter) {
+            $raw = $this->input->post($field);
+            $raw = is_string($raw) ? trim(str_replace(',', '.', $raw)) : '';
+
+            if ($raw === '') {
+                if ($parameter['wajib']) {
+                    $errors[] = $parameter['label'] . ' wajib diisi.';
+                }
+
+                $data[$field] = null;
+
+                continue;
+            }
+
+            if ($parameter['tipe'] === 'pilihan') {
+                if (!isset($parameter['pilihan'][$raw])) {
+                    $errors[] = $parameter['label'] . ': pilihan tidak valid.';
+                }
+
+                $data[$field] = $raw;
+
+                continue;
+            }
+
+            $desimal = $parameter['step'] < 1 ? 1 : 0;
+            $data[$field] = $raw;
+
+            if (!$this->is_valid_number($raw, $parameter['min'], $parameter['max'])) {
+                $errors[] = $parameter['label'] . ' harus angka ' . $parameter['min'] . '–' . $parameter['max'] . '.';
+
+                continue;
+            }
+
+            $data[$field] = round((float) $raw, $desimal);
+        }
+
+        foreach ($this->observasi_angka as $field => list($label, $min, $max, $desimal)) {
+            $raw = $this->input->post($field);
+            $raw = is_string($raw) ? trim(str_replace(',', '.', $raw)) : '';
+            $data[$field] = $raw === '' ? null : $raw;
+
+            if ($raw !== '' && !$this->is_valid_number($raw, $min, $max)) {
+                $errors[] = $label . ' harus angka ' . $min . '–' . $max . '.';
+
+                continue;
+            }
+
+            if ($raw !== '') {
+                $data[$field] = round((float) $raw, $desimal);
+            }
+        }
+
+        foreach ($pilihan_pendukung as $field => $choices) {
+            $raw = $this->input->post($field);
+            $raw = is_string($raw) ? trim($raw) : '';
+
+            if ($raw !== '' && !isset($choices[$raw])) {
+                $errors[] = 'Pilihan ' . str_replace('_', ' ', $field) . ' tidak valid.';
+            }
+
+            $data[$field] = $raw === '' ? null : $raw;
+        }
+
+        if (
+            !$errors
+            && $data['td_sistolik_mmhg'] !== null
+            && $data['td_diastolik_mmhg'] !== null
+            && $data['td_diastolik_mmhg'] >= $data['td_sistolik_mmhg']
+        ) {
+            $errors[] = 'Tekanan darah diastolik harus lebih kecil dari sistolik.';
+        }
+
+        if ($errors) {
+            $this->form_error($id, 'vital', $data, $errors);
+
+            return;
+        }
+
+        // Skor disimpan bersama versi aturan agar hasil lama tetap dapat ditelusuri.
+        $hasil = $this->meows->hitung($data);
+        $data['waktu_observasi'] = $waktu_obj->format('Y-m-d H:i:00');
+        $data['id_kunjungan'] = $id;
+        $data['id_user_pencatat'] = (int) $this->web_user['id_user'];
+        $data['meows_skor'] = $hasil['skor'];
+        $data['meows_jumlah_merah'] = $hasil['jumlah_merah'];
+        $data['meows_jumlah_kuning'] = $hasil['jumlah_kuning'];
+        $data['meows_zona'] = $hasil['zona'];
+        $data['meows_parameter_terisi'] = $hasil['terisi'];
+        $data['meows_versi_aturan'] = $this->meows->versi();
+
+        if ($data['kepala_masuk_panggul'] !== null) {
+            $data['kepala_masuk_panggul'] = (int) $data['kepala_masuk_panggul'];
+        }
+
+        if (!$this->observasi->insert($data)) {
+            $this->form_error($id, 'vital', $data, ['Observasi gagal disimpan. Coba lagi.']);
+
+            return;
+        }
+
+        $this->session->set_flashdata(
+            'success',
+            'Observasi tersimpan. MEOWS ' . $hasil['skor'] . ' (zona ' . $hasil['zona'] . ').'
+        );
+        $this->redirect_tab($id, 'vital');
+    }
+
+    public function delete_vital($id = '', $id_observasi = '')
+    {
+        $this->require_post();
+        $patient = $this->load_patient($id);
+        $id = (int) $patient['id_kunjungan'];
+
+        if (
+            !preg_match('/^[1-9][0-9]*$/D', (string) $id_observasi)
+            || !$this->observasi->find($id, (int) $id_observasi)
+        ) {
+            show_404();
+        }
+
+        if ($this->observasi->delete($id, (int) $id_observasi)) {
+            $this->session->set_flashdata('success', 'Observasi berhasil dihapus.');
+        } else {
+            $this->session->set_flashdata('error', 'Observasi gagal dihapus.');
+        }
+
+        $this->redirect_tab($id, 'vital');
+    }
+
+    public function save_diagnosis($id = '')
+    {
+        $this->require_post();
+        $patient = $this->load_patient($id);
+        $id = (int) $patient['id_kunjungan'];
+
+        $input = $this->input->post('diagnosis');
+        $input = is_array($input) ? $input : [];
+        $options = array_column($this->stabilisasi->diagnosis_options(), null, 'id_diagnosis');
+        $diagnosis_ids = [];
+
+        foreach ($input as $value) {
+            if (!is_string($value) || !ctype_digit($value) || !isset($options[(int) $value])) {
+                show_error('Diagnosa tidak valid.', 400);
+            }
+
+            $diagnosis_ids[(int) $value] = (int) $value;
+        }
+
+        if (!$this->stabilisasi->save_diagnosis($id, array_values($diagnosis_ids), (int) $this->web_user['id_user'])) {
+            $this->session->set_flashdata('error', 'Diagnosa kerja gagal disimpan. Coba lagi.');
+        } else {
+            $this->session->set_flashdata('success', 'Diagnosa kerja berhasil disimpan.');
+        }
+
+        $this->redirect_tab($id, 'stabilisasi');
+    }
+
+    public function save_stabilisasi($id = '')
+    {
+        $this->require_post();
+        $patient = $this->load_patient($id);
+        $id = (int) $patient['id_kunjungan'];
+
+        $items = $this->stabilisasi->items(array_keys($this->stabilisasi->diagnosis_kunjungan($id)));
+        if (!$items) {
+            $this->session->set_flashdata('error', 'Pilih diagnosa kerja terlebih dahulu.');
+            $this->redirect_tab($id, 'stabilisasi');
+
+            return;
+        }
+
+        $input = $this->input->post('item');
+        $input = is_array($input) ? $input : [];
+        $status_labels = $this->config->item('stabilisasi_status');
+        $beralasan = $this->config->item('stabilisasi_status_beralasan');
+
+        $state = [];
+        $rows = [];
+        $errors = [];
+
+        foreach ($items as $id_item => $item) {
+            $raw = isset($input[$id_item]) && is_array($input[$id_item]) ? $input[$id_item] : [];
+            $value = function ($key) use ($raw) {
+                return isset($raw[$key]) && is_string($raw[$key]) ? trim($raw[$key]) : '';
+            };
+
+            $label = mb_strimwidth($item['teks_standar'], 0, 60, '…');
+            $status = $value('status') ?: 'belum';
+            $detail = $value('detail_tindakan');
+            $alasan = $value('alasan');
+            $waktu = $value('waktu_pelaksanaan');
+
+            $state[$id_item] = [
+                'status' => $status,
+                'detail_tindakan' => $detail,
+                'alasan' => $alasan,
+                'waktu_pelaksanaan' => $waktu
+            ];
+
+            // Status yang sah bergantung pada jenis butir; "tidak diperlukan" khusus butir opsional.
+            $allowed = array_keys($status_labels[$item['jenis']]);
+            if ($item['jenis'] === 'tindakan' && $item['sifat'] !== 'wajib') {
+                $allowed[] = 'tidak_diperlukan';
+            }
+
+            if (!in_array($status, $allowed, true)) {
+                $errors[] = $label . ': status tidak valid.';
+
+                continue;
+            }
+
+            if (mb_strlen($detail) > 500) {
+                $errors[] = $label . ': detail maksimal 500 karakter.';
+            }
+
+            if (mb_strlen($alasan) > 255) {
+                $errors[] = $label . ': alasan maksimal 255 karakter.';
+            }
+
+            if (in_array($status, $beralasan, true) && $alasan === '') {
+                $errors[] = $label . ': alasan wajib diisi.';
+            }
+
+            $waktu_db = null;
+            if ($waktu !== '') {
+                $waktu_obj = DateTime::createFromFormat('!Y-m-d\TH:i', $waktu);
+
+                if (!$waktu_obj || $waktu_obj->format('Y-m-d\TH:i') !== $waktu) {
+                    $errors[] = $label . ': waktu pelaksanaan tidak valid.';
+                } elseif ($waktu_obj->getTimestamp() > time() + self::TOLERANSI_WAKTU_DETIK) {
+                    $errors[] = $label . ': waktu pelaksanaan tidak boleh melebihi waktu sekarang.';
+                } else {
+                    $waktu_db = $waktu_obj->format('Y-m-d H:i:00');
+                }
+            } elseif ($status === 'dilakukan') {
+                $errors[] = $label . ': waktu pelaksanaan wajib diisi.';
+            }
+
+            // Butir yang kembali ke "belum" tanpa catatan dihapus agar tidak tercatat sebagai pelaksanaan.
+            $kosong = $status === 'belum' && $detail === '' && $alasan === '' && $waktu === '';
+            $rows[$id_item] = $kosong ? null : [
+                'status' => $status,
+                'detail_tindakan' => $detail === '' ? null : $detail,
+                'alasan' => $alasan === '' ? null : $alasan,
+                'waktu_pelaksanaan' => $waktu_db,
+                'id_user' => (int) $this->web_user['id_user']
+            ];
+        }
+
+        // Dosis berurutan: dosis ke-n hanya boleh dicatat setelah dosis ke-(n-1) dilakukan lebih dulu.
+        foreach ($items as $id_item => $item) {
+            if (
+                $item['kelompok_dosis'] === null
+                || (int) $item['dosis_ke'] < 2
+                || $state[$id_item]['status'] !== 'dilakukan'
+            ) {
+                continue;
+            }
+
+            $sebelumnya = null;
+            foreach ($items as $id_lain => $lain) {
+                if (
+                    $lain['kelompok_dosis'] === $item['kelompok_dosis']
+                    && (int) $lain['dosis_ke'] === (int) $item['dosis_ke'] - 1
+                ) {
+                    $sebelumnya = $id_lain;
+                }
+            }
+
+            if ($sebelumnya === null || $state[$sebelumnya]['status'] !== 'dilakukan') {
+                $errors[] = mb_strimwidth($item['teks_standar'], 0, 60, '…') . ': dosis sebelumnya belum dicatat dilakukan.';
+            } elseif ($state[$sebelumnya]['waktu_pelaksanaan'] > $state[$id_item]['waktu_pelaksanaan']) {
+                $errors[] = mb_strimwidth($item['teks_standar'], 0, 60, '…') . ': waktu lebih awal dari dosis sebelumnya.';
+            }
+        }
+
+        if ($errors) {
+            $this->form_error($id, 'stabilisasi', ['item' => $state], array_values(array_unique($errors)));
+
+            return;
+        }
+
+        if (!$this->stabilisasi->save_pelaksanaan($id, $rows)) {
+            $this->form_error($id, 'stabilisasi', ['item' => $state], ['Checklist stabilisasi gagal disimpan. Coba lagi.']);
+
+            return;
+        }
+
+        $this->session->set_flashdata('success', 'Checklist stabilisasi berhasil disimpan.');
+        $this->redirect_tab($id, 'stabilisasi');
+    }
+
+    private function meows_flags($observasi)
+    {
+        if (!$observasi || $observasi['meows_zona'] === null || $observasi['meows_zona'] === 'normal') {
+            return [];
+        }
+
+        $waktu = DateTime::createFromFormat('Y-m-d H:i:s', $observasi['waktu_observasi']);
+        $text = 'MEOWS terakhir ' . (int) $observasi['meows_skor']
+            . ' (zona ' . $observasi['meows_zona'] . ')'
+            . ($waktu ? ' pada ' . $waktu->format('d/m/Y H:i') : '');
+
+        if ($observasi['meows_zona'] === 'merah') {
+            $text .= ' — segera evaluasi dan laporkan ke dokter.';
+        }
+
+        return [[
+            'level' => $observasi['meows_zona'] === 'merah' ? 'bahaya' : 'risiko',
+            'text' => $text
+        ]];
+    }
+
+    private function is_valid_number($value, $min, $max)
+    {
+        return preg_match('/^[0-9]{1,4}(\.[0-9]{1,2})?$/D', $value) === 1
+            && (float) $value >= $min
+            && (float) $value <= $max;
     }
 
     private function load_patient($id)
