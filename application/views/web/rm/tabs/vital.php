@@ -221,7 +221,7 @@ $tampil_nilai = function ($field, $parameter, $row) {
                         <th scope="col">Urin</th>
                         <th scope="col">MEOWS</th>
                         <th scope="col">Pencatat</th>
-                        <th scope="col" class="text-end">Tindakan</th>
+                        <?php if ($boleh_edit): ?><th scope="col" class="text-end">Tindakan</th><?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -246,15 +246,17 @@ $tampil_nilai = function ($field, $parameter, $row) {
                                 <?php endif; ?>
                             </td>
                             <td class="small"><?= html_escape($row['nama_pencatat'] ?: '—') ?></td>
-                            <td class="text-end">
-                                <?= form_open('web/rm/' . $id . '/delete_vital/' . (int) $row['id_observasi'], [
-                                    'class' => 'd-inline',
-                                    'data-confirm-title' => 'Hapus observasi?',
-                                    'data-confirm' => html_escape('Observasi ' . $format_waktu($row['waktu_observasi']) . ' akan dihapus permanen.')
-                                ]) ?>
-                                    <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
-                                <?= form_close() ?>
-                            </td>
+                            <?php if ($boleh_edit): ?>
+                                <td class="text-end">
+                                    <?= form_open('web/rm/' . $id . '/delete_vital/' . (int) $row['id_observasi'], [
+                                        'class' => 'd-inline',
+                                        'data-confirm-title' => 'Hapus observasi?',
+                                        'data-confirm' => html_escape('Observasi ' . $format_waktu($row['waktu_observasi']) . ' akan dihapus permanen.')
+                                    ]) ?>
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                                    <?= form_close() ?>
+                                </td>
+                            <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

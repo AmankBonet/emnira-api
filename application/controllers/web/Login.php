@@ -21,8 +21,9 @@ class Login extends CI_Controller
         }
 
         $id = $this->session->userdata('web_user_id');
-        if ($id && $this->web_auth->active_user($id)) {
-            redirect('web/users');
+        $aktif = $id ? $this->web_auth->active_user($id) : null;
+        if ($aktif) {
+            redirect($this->beranda($aktif));
             return;
         }
 
@@ -42,7 +43,7 @@ class Login extends CI_Controller
                 // Ganti ID session saat login untuk mencegah session fixation.
                 $this->session->sess_regenerate(true);
                 $this->session->set_userdata('web_user_id', (int) $user['id_user']);
-                redirect('web/users');
+                redirect($this->beranda($user));
                 return;
             }
 
@@ -55,6 +56,16 @@ class Login extends CI_Controller
             'username' => $username,
             'error' => $error
         ]);
+    }
+
+    /**
+     * Halaman awal sesuai role: FKTP ke Identitas pasien, FKRTL ke Rujukan masuk.
+     */
+    private function beranda(array $user)
+    {
+        $this->load->library('akses_rujukan', $user, 'akses');
+
+        return $this->akses->beranda();
     }
 
     public function logout()

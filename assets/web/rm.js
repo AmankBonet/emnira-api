@@ -107,7 +107,14 @@
         const editing = Number(data.id_kunjungan || 0) > 0;
 
         fields.forEach((field) => {
-            form.elements[field].value = data[field] ?? (field === 'id_kunjungan' ? '0' : '');
+            const element = form.elements[field];
+
+            // Faskes perujuk non-admin dikunci ke faskes user dan tidak boleh ditimpa data lama.
+            if (element.dataset && element.dataset.locked === '1') {
+                return;
+            }
+
+            element.value = data[field] ?? (field === 'id_kunjungan' ? '0' : '');
         });
 
         // Pasien baru umumnya didaftarkan pada hari yang sama.

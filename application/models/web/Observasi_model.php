@@ -18,6 +18,36 @@ class Observasi_model extends CI_Model
             ->result_array();
     }
 
+    /**
+     * Beberapa observasi terakhir per kunjungan untuk daftar rujukan (tren MEOWS naik/turun).
+     *
+     * @return array [id_kunjungan => [observasi terbaru, observasi sebelumnya, ...]]
+     */
+    public function terakhir_per_kunjungan(array $ids, $jumlah = 2)
+    {
+        if (!$ids) {
+            return [];
+        }
+
+        $rows = $this->db
+            ->select('id_kunjungan, waktu_observasi, meows_skor, meows_zona')
+            ->where_in('id_kunjungan', $ids)
+            ->order_by('waktu_observasi', 'DESC')
+            ->order_by('id_observasi', 'DESC')
+            ->get('t_kunjungan_observasi')
+            ->result_array();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['id_kunjungan'];
+            if (!isset($result[$id]) || count($result[$id]) < $jumlah) {
+                $result[$id][] = $row;
+            }
+        }
+
+        return $result;
+    }
+
     public function find($id_kunjungan, $id_observasi)
     {
         return $this->db

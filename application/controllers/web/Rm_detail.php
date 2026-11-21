@@ -50,6 +50,7 @@ class Rm_detail extends Web_Controller
 
         $this->config->load('obstetri');
         $this->config->load('stabilisasi');
+        $this->config->load('rujukan_status');
         $this->load->model('web/Kunjungan_model', 'kunjungan');
         $this->load->model('web/Obstetri_model', 'obstetri');
         $this->load->model('web/Observasi_model', 'observasi');
@@ -87,7 +88,7 @@ class Rm_detail extends Web_Controller
         // Urutan penanda: MEOWS dan target waktu stabilisasi paling mendesak, lalu riwayat.
         $flags = $this->obstetri->analisis($gpa, $riwayat, $kondisi_ibu, $pilihan_map, $patient['tgl_reg']);
         $flags = array_merge(
-            $this->meows_flags($observasi_terakhir),
+            $this->meows->flags($observasi_terakhir),
             $stabilisasi_ringkasan['peringatan'],
             $flags
         );
@@ -108,10 +109,21 @@ class Rm_detail extends Web_Controller
             $ambang[$field] = $this->meows->ambang_teks($field);
         }
 
+        $peran = $this->akses->peran($patient);
+
         $this->render('web/rm/detail', [
             'page_title' => 'Rekam medis · ' . $patient['nama'],
-            'active_menu' => 'rm',
+            // Faskes tujuan membuka halaman ini dari menu Rujukan masuk.
+            'active_menu' => $peran === 'tujuan' ? 'rujukan' : 'rm',
             'patient' => $patient,
+            'akses_rm' => [
+                'peran' => $peran,
+                'edit' => $this->akses->can_edit($patient),
+                'observasi' => $this->akses->can_add_observasi($patient),
+                'kirim' => $this->akses->can_send($patient),
+                'batal_kirim' => $this->akses->can_cancel_send($patient)
+            ],
+            'status_rujukan' => $this->config->item('status_rujukan'),
             'tabs' => $this->tabs,
             'tab' => $tab,
             'gpa' => $gpa,
@@ -152,7 +164,7 @@ class Rm_detail extends Web_Controller
     public function save_gpa($id = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'edit');
         $id = (int) $patient['id_kunjungan'];
 
         $data = [];
@@ -201,7 +213,7 @@ class Rm_detail extends Web_Controller
     public function save_riwayat($id = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'edit');
         $id = (int) $patient['id_kunjungan'];
 
         $gpa = $this->obstetri->find_gpa($id);
@@ -310,7 +322,7 @@ class Rm_detail extends Web_Controller
     public function save_kondisi($id = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'edit');
         $id = (int) $patient['id_kunjungan'];
 
         $kode_list = $this->input->post('kondisi');
@@ -368,7 +380,7 @@ class Rm_detail extends Web_Controller
     public function save_vital($id = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'observasi');
         $id = (int) $patient['id_kunjungan'];
 
         $rules = $this->meows->rules();
@@ -498,7 +510,7 @@ class Rm_detail extends Web_Controller
     public function delete_vital($id = '', $id_observasi = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'edit');
         $id = (int) $patient['id_kunjungan'];
 
         if (
@@ -520,7 +532,7 @@ class Rm_detail extends Web_Controller
     public function save_diagnosis($id = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'edit');
         $id = (int) $patient['id_kunjungan'];
 
         $input = $this->input->post('diagnosis');
@@ -548,7 +560,7 @@ class Rm_detail extends Web_Controller
     public function save_stabilisasi($id = '')
     {
         $this->require_post();
-        $patient = $this->load_patient($id);
+        $patient = $this->load_patient($id, 'edit');
         $id = (int) $patient['id_kunjungan'];
 
         $items = $this->stabilisasi->items(array_keys($this->stabilisasi->diagnosis_kunjungan($id)));
@@ -680,27 +692,6 @@ class Rm_detail extends Web_Controller
         $this->redirect_tab($id, 'stabilisasi');
     }
 
-    private function meows_flags($observasi)
-    {
-        if (!$observasi || $observasi['meows_zona'] === null || $observasi['meows_zona'] === 'normal') {
-            return [];
-        }
-
-        $waktu = DateTime::createFromFormat('Y-m-d H:i:s', $observasi['waktu_observasi']);
-        $text = 'MEOWS terakhir ' . (int) $observasi['meows_skor']
-            . ' (zona ' . $observasi['meows_zona'] . ')'
-            . ($waktu ? ' pada ' . $waktu->format('d/m/Y H:i') : '');
-
-        if ($observasi['meows_zona'] === 'merah') {
-            $text .= ' — segera evaluasi dan laporkan ke dokter.';
-        }
-
-        return [[
-            'level' => $observasi['meows_zona'] === 'merah' ? 'bahaya' : 'risiko',
-            'text' => $text
-        ]];
-    }
-
     private function is_valid_number($value, $min, $max)
     {
         return preg_match('/^[0-9]{1,4}(\.[0-9]{1,2})?$/D', $value) === 1
@@ -708,15 +699,90 @@ class Rm_detail extends Web_Controller
             && (float) $value <= $max;
     }
 
-    private function load_patient($id)
+    public function kirim($id = '')
+    {
+        $this->require_post();
+        $patient = $this->load_patient($id);
+        $id = (int) $patient['id_kunjungan'];
+
+        if (!$this->akses->can_send($patient)) {
+            $this->session->set_flashdata('error', 'Rujukan ini tidak dapat dikirim.');
+            $this->redirect_tab($id, 'identitas');
+
+            return;
+        }
+
+        // Tanpa tujuan yang jelas, rujukan tidak akan muncul di faskes mana pun.
+        if (!$patient['id_faskes_tujuan'] || !$patient['id_faskes_perujuk']) {
+            $this->session->set_flashdata('error', 'Lengkapi faskes perujuk dan faskes tujuan di identitas pasien sebelum mengirim.');
+            $this->redirect_tab($id, 'identitas');
+
+            return;
+        }
+
+        $berhasil = $this->kunjungan->ubah_status($id, 'draf', [
+            'status_rujukan' => 'dikirim',
+            'waktu_dikirim' => date('Y-m-d H:i:s'),
+            'id_user_pengirim' => (int) $this->web_user['id_user']
+        ]);
+
+        $this->session->set_flashdata(
+            $berhasil ? 'success' : 'error',
+            $berhasil
+                ? 'Rujukan dikirim ke ' . $patient['nama_faskes_tujuan'] . '. Data terkunci; observasi masih dapat ditambahkan.'
+                : 'Rujukan gagal dikirim. Muat ulang halaman dan coba lagi.'
+        );
+        $this->redirect_tab($id, 'identitas');
+    }
+
+    public function batal_kirim($id = '')
+    {
+        $this->require_post();
+        $patient = $this->load_patient($id);
+        $id = (int) $patient['id_kunjungan'];
+
+        // Pembatalan hanya sah selama faskes tujuan belum menerima.
+        $berhasil = $this->akses->can_cancel_send($patient)
+            && $this->kunjungan->ubah_status($id, 'dikirim', [
+                'status_rujukan' => 'draf',
+                'waktu_dikirim' => null,
+                'id_user_pengirim' => null
+            ]);
+
+        $this->session->set_flashdata(
+            $berhasil ? 'success' : 'error',
+            $berhasil
+                ? 'Pengiriman dibatalkan; data dapat diubah kembali.'
+                : 'Pengiriman tidak dapat dibatalkan karena rujukan sudah diterima faskes tujuan.'
+        );
+        $this->redirect_tab($id, 'identitas');
+    }
+
+    /**
+     * Memuat kunjungan dan memeriksa hak user.
+     *
+     * @param string $hak lihat | edit | observasi
+     */
+    private function load_patient($id, $hak = 'lihat')
     {
         if (!preg_match('/^[1-9][0-9]*$/D', (string) $id) || (float) $id > 2147483647) {
             show_404();
         }
 
         $patient = $this->kunjungan->find_detail((int) $id);
-        if (!$patient) {
+
+        // Kunjungan faskes lain diperlakukan seperti tidak ada agar keberadaannya tidak bocor.
+        if (!$patient || !$this->akses->can_view($patient)) {
             show_404();
+        }
+
+        $boleh = $hak === 'edit'
+            ? $this->akses->can_edit($patient)
+            : ($hak === 'observasi' ? $this->akses->can_add_observasi($patient) : true);
+
+        if (!$boleh) {
+            $this->session->set_flashdata('error', 'Data terkunci karena rujukan sudah dikirim atau Anda tidak berhak mengubahnya.');
+            $this->redirect_tab((int) $patient['id_kunjungan'], 'identitas');
         }
 
         return $patient;

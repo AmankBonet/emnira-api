@@ -20,7 +20,9 @@ $rows = [
             <h2 class="h5 mb-1">Identitas pasien</h2>
             <p class="text-secondary small mb-0">Data kunjungan dari menu Identitas pasien.</p>
         </div>
-        <a class="btn btn-outline-secondary" href="<?= html_escape(site_url('web/rm') . '?' . http_build_query(['q' => $patient['no_rm']])) ?>">Ubah identitas</a>
+        <?php if ($boleh_edit): ?>
+            <a class="btn btn-outline-secondary" href="<?= html_escape(site_url('web/rm') . '?' . http_build_query(['q' => $patient['no_rm']])) ?>">Ubah identitas</a>
+        <?php endif; ?>
     </div>
     <dl class="row mb-0">
         <?php foreach ($rows as $label => $value): ?>

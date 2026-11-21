@@ -55,5 +55,16 @@ $route['translate_uri_dashes'] = FALSE;
 
 // Halaman entri rekam medis per kunjungan pasien.
 $route['web/rm/(:num)'] = 'web/rm_detail/index/$1';
-$route['web/rm/(:num)/(save_gpa|save_riwayat|save_kondisi|save_vital|save_diagnosis|save_stabilisasi)'] = 'web/rm_detail/$2/$1';
+$route['web/rm/(:num)/(save_gpa|save_riwayat|save_kondisi|save_vital|save_diagnosis|save_stabilisasi|kirim|batal_kirim)'] = 'web/rm_detail/$2/$1';
 $route['web/rm/(:num)/delete_vital/(:num)'] = 'web/rm_detail/delete_vital/$1/$2';
+
+// Rujukan masuk untuk faskes tujuan.
+$route['web/rujukan'] = 'web/rujukan_masuk/index';
+$route['web/rujukan/(:num)'] = 'web/rujukan_masuk/detail/$1';
+$route['web/rujukan/(:num)/(terima|tiba)'] = 'web/rujukan_masuk/$2/$1';
+
+// Master data (administrator); kunci tabel didefinisikan di config/master.php.
+$route['web/master'] = 'web/master/index';
+$route['web/master/([a-z_]+)'] = 'web/master/tabel/$1';
+$route['web/master/([a-z_]+)/save'] = 'web/master/save/$1';
+$route['web/master/([a-z_]+)/delete/([A-Za-z0-9_]+)'] = 'web/master/delete/$1/$2';

@@ -177,3 +177,85 @@ body { background: #f4f7fa; color: #243746; }
 .meows-chip-kuning { border-left-color: #e0a800; background: #fffcf2; }
 .meows-chip-merah { border-left-color: #dc3545; background: #fdf3f4; }
 .meows-chip-kosong { border-left-color: #ced4da; color: #8395a3; }
+
+/* Status rujukan dan mode baca pada rekam medis */
+.rm-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem 1rem; background: #fff; border: 1px solid #e4ebef; border-radius: 1rem; box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .075); }
+.rm-status-main { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.rm-readonly-note { padding: .55rem .9rem; border-radius: .75rem; background: #eef4f8; color: #3d5466; font-size: .85rem; border: 1px dashed #b9cad6; }
+.rm-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+/* !important diperlukan karena footer memakai utilitas d-flex Bootstrap yang juga !important. */
+.rm-fieldset.is-readonly .card-footer { display: none !important; }
+.rm-fieldset.is-readonly .form-control:disabled,
+.rm-fieldset.is-readonly .form-select:disabled { background-color: #fafbfc; color: #243746; opacity: 1; }
+
+/* Daftar rujukan masuk */
+.rujukan-list { display: flex; flex-direction: column; gap: .6rem; max-width: 1100px; }
+.rujukan-card { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 1rem; align-items: center; padding: .75rem 1rem; background: #fff; border: 1px solid #e4ebef; border-left: 5px solid #ced4da; border-radius: 1rem; color: inherit; text-decoration: none; box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .05); }
+.rujukan-card:hover { border-color: #9fd3cd; color: inherit; box-shadow: 0 .25rem .75rem rgba(8, 127, 120, .12); }
+.rujukan-card.is-new { background: #fffdf5; }
+.rujukan-danger { border-left-color: #dc3545; }
+.rujukan-warning { border-left-color: #e0a800; }
+.rujukan-success { border-left-color: #198754; }
+.rujukan-meows { display: flex; flex-direction: column; align-items: center; padding: .35rem; border-radius: .75rem; background: #f4f7fa; }
+.rujukan-danger .rujukan-meows { background: #fdecee; color: #842029; }
+.rujukan-warning .rujukan-meows { background: #fff7e0; color: #664d03; }
+.rujukan-success .rujukan-meows { background: #e7f5ee; color: #0f5132; }
+.rujukan-meows span { font-size: .62rem; font-weight: 700; letter-spacing: .08em; }
+.rujukan-meows strong { font-size: 1.6rem; line-height: 1.1; }
+.rujukan-meows small { font-size: .68rem; white-space: nowrap; }
+@media (max-width: 575.98px) {
+    .rujukan-card { grid-template-columns: 70px minmax(0, 1fr); }
+    .rujukan-status { grid-column: 1 / -1; }
+}
+
+/* Ringkasan SBAR untuk faskes tujuan */
+.sbar-layout { display: grid; grid-template-columns: minmax(0, 860px) 300px; gap: 1.25rem; align-items: start; }
+.sbar-main, .sbar-aside { min-width: 0; }
+.sbar-aside { position: sticky; top: 1rem; }
+.sbar-title { display: flex; align-items: center; gap: .6rem; font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; }
+.sbar-title span { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: .5rem; background: var(--app-teal); color: #fff; font-size: .95rem; }
+.sbar-sub { font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #617382; margin-bottom: .5rem; }
+.sbar-dl { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: .4rem 1rem; margin-bottom: 0; font-size: .9rem; }
+.sbar-dl dt { color: #617382; font-weight: 500; }
+.sbar-dl dd { margin: 0; }
+.sbar-table > :not(caption) > * > * { padding: .45rem .6rem; font-size: .85rem; }
+.sbar-timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .35rem; font-size: .875rem; }
+.sbar-timeline li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: .5rem; padding: .35rem .6rem; border-radius: .5rem; background: #f1f9f4; }
+.sbar-time { font-weight: 700; color: #0f5132; font-variant-numeric: tabular-nums; }
+.meows-trend { width: 100%; max-width: 560px; height: 120px; }
+.meows-trend .bar-merah { fill: #dc3545; }
+.meows-trend .bar-kuning { fill: #e0a800; }
+.meows-trend .bar-normal { fill: #198754; }
+.meows-trend .trend-value { font-size: 11px; font-weight: 700; fill: #243746; }
+.meows-trend .trend-label { font-size: 9px; fill: #617382; }
+.sbar-steps { list-style: none; padding: 0 0 0 1.1rem; margin: 0 0 1rem; border-left: 2px solid #e4ebef; display: flex; flex-direction: column; gap: .8rem; }
+.sbar-steps li { position: relative; display: flex; flex-direction: column; font-size: .85rem; }
+.sbar-steps li::before { content: ''; position: absolute; left: calc(-1.1rem - 7px); top: .2rem; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid #c5d3dc; }
+.sbar-steps li.is-done::before { background: #198754; border-color: #198754; }
+.sbar-steps li.is-current::before { background: #fff; border-color: #e0a800; box-shadow: 0 0 0 3px rgba(224, 168, 0, .2); }
+.sbar-steps small { color: #7a8c99; }
+.sbar-metric { display: flex; flex-direction: column; padding: .6rem .8rem; border-radius: .75rem; background: #f1f9f4; color: #0f5132; }
+.sbar-metric.is-late { background: #fdecee; color: #842029; }
+.sbar-metric span { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.sbar-metric strong { font-size: 1.25rem; }
+.sbar-metric small { font-size: .75rem; }
+@media (max-width: 1199.98px) {
+    .sbar-layout { grid-template-columns: minmax(0, 1fr); }
+    .sbar-aside { position: static; order: -1; }
+    .sbar-dl { grid-template-columns: 1fr; }
+}
+
+/* Penanda faskes dan role user di sidebar */
+.sidebar-faskes { display: flex; flex-direction: column; padding: .6rem .75rem; border-radius: .6rem; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
+.sidebar-faskes span { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: #a2b9c5; }
+.sidebar-faskes strong { font-size: .85rem; color: #fff; line-height: 1.3; }
+
+/* Master data (administrator) */
+.master-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; max-width: 1200px; }
+.master-card { display: flex; flex-direction: column; gap: .3rem; padding: 1.1rem 1.25rem; background: #fff; border: 1px solid #e4ebef; border-radius: 1rem; color: inherit; text-decoration: none; box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .05); }
+.master-card:hover { border-color: #9fd3cd; color: inherit; box-shadow: 0 .25rem .75rem rgba(8, 127, 120, .12); }
+.master-card small { color: #617382; }
+.master-card-count { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-width: 42px; height: 42px; padding: 0 .6rem; border-radius: 12px; background: #e6f4f1; color: var(--app-teal); font-weight: 700; font-size: 1.1rem; margin-bottom: .35rem; }
+.master-filter { max-width: 260px; }
+.master-table .master-cell-long { max-width: 420px; font-size: .875rem; }
+.breadcrumb-text a { color: var(--app-teal); text-decoration: none; }

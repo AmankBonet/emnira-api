@@ -10,6 +10,9 @@ class Users extends Web_Controller
     {
         parent::__construct();
 
+        // Pengelolaan akun hanya untuk administrator.
+        $this->require_menu('admin');
+
         $this->load->model('web/User_model', 'web_users');
         $this->load->library('form_validation');
     }
@@ -79,6 +82,12 @@ class Users extends Web_Controller
 
             if ($data['id_faskes'] !== '' && !$this->web_users->faskes_exists((int) $data['id_faskes'])) {
                 $errors[] = 'Faskes yang dipilih tidak tersedia. Silakan pilih kembali.';
+            }
+
+            // Nakes FKTP/FKRTL tanpa faskes tidak akan melihat pasien mana pun.
+            $role_nakes = [Akses_rujukan::ROLE_FKTP, Akses_rujukan::ROLE_FKRTL];
+            if (in_array((int) $data['id_role'], $role_nakes, true) && $data['id_faskes'] === '') {
+                $errors[] = 'Faskes wajib dipilih untuk role nakes FKTP/FKRTL.';
             }
         }
 

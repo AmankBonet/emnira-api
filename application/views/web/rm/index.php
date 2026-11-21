@@ -46,7 +46,7 @@ $faskes_label = function (array $faskes) {
                     <th scope="col">Tgl. registrasi</th>
                     <th scope="col">Kehamilan</th>
                     <th scope="col">Lokasi</th>
-                    <th scope="col">Faskes perujuk → tujuan</th>
+                    <th scope="col">Rujukan</th>
                     <th scope="col" class="text-end">Tindakan</th>
                 </tr>
             </thead>
@@ -84,19 +84,23 @@ $faskes_label = function (array $faskes) {
                     </td>
                     <td><?= html_escape($patient['lokasi'] ?: '—') ?></td>
                     <td>
-                        <div><?= html_escape($patient['nama_faskes_perujuk'] ?: '—') ?></div>
+                        <?php $status = $status_rujukan[$patient['status_rujukan']]; ?>
+                        <span class="badge <?= $status['badge'] ?> mb-1"><?= html_escape($status['label']) ?></span>
+                        <div class="small"><?= html_escape($patient['nama_faskes_perujuk'] ?: '—') ?></div>
                         <small class="text-secondary">→ <?= html_escape($patient['nama_faskes_tujuan'] ?: '—') ?></small>
                     </td>
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-primary" href="<?= html_escape(site_url('web/rm/' . (int) $patient['id_kunjungan'])) ?>" aria-label="Buka rekam medis <?= html_escape($patient['nama'] ?? '') ?>">Rekam medis</a>
-                        <button class="btn btn-sm btn-outline-secondary ms-1" type="button" data-bs-toggle="modal" data-bs-target="#patientModal" data-patient="<?= html_escape(json_encode($json, JSON_INVALID_UTF8_SUBSTITUTE)) ?>" aria-label="Edit <?= html_escape($patient['nama'] ?? '') ?>">Edit</button>
-                        <?= form_open('web/rm/delete/' . $patient['id_kunjungan'], [
-                            'class' => 'd-inline',
-                            'data-confirm-title' => 'Hapus identitas pasien?',
-                            'data-confirm' => html_escape('Data pasien ' . ($patient['nama'] ?? '') . ' akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.')
-                        ]) ?>
-                            <button class="btn btn-sm btn-outline-danger ms-1" type="submit" aria-label="Hapus <?= html_escape($patient['nama'] ?? '') ?>">Hapus</button>
-                        <?= form_close() ?>
+                        <?php if ($patient['can_edit']): ?>
+                            <button class="btn btn-sm btn-outline-secondary ms-1" type="button" data-bs-toggle="modal" data-bs-target="#patientModal" data-patient="<?= html_escape(json_encode($json, JSON_INVALID_UTF8_SUBSTITUTE)) ?>" aria-label="Edit <?= html_escape($patient['nama'] ?? '') ?>">Edit</button>
+                            <?= form_open('web/rm/delete/' . $patient['id_kunjungan'], [
+                                'class' => 'd-inline',
+                                'data-confirm-title' => 'Hapus identitas pasien?',
+                                'data-confirm' => html_escape('Data pasien ' . ($patient['nama'] ?? '') . ' akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.')
+                            ]) ?>
+                                <button class="btn btn-sm btn-outline-danger ms-1" type="submit" aria-label="Hapus <?= html_escape($patient['nama'] ?? '') ?>">Hapus</button>
+                            <?= form_close() ?>
+                        <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -191,20 +195,38 @@ $faskes_label = function (array $faskes) {
 
                 <h3 class="h6 text-secondary mt-4 mb-3">Faskes</h3>
                 <div class="row g-3">
-                    <?php foreach ([
-                        'id_faskes_perujuk' => 'Faskes perujuk',
-                        'id_faskes_tujuan' => 'Faskes tujuan'
-                    ] as $field => $label): ?>
-                        <div class="col-md-6">
-                            <label for="<?= $field ?>" class="form-label"><?= $label ?></label>
-                            <select class="form-select" id="<?= $field ?>" name="<?= $field ?>">
+                    <div class="col-md-6">
+                        <label for="<?= $faskes_user === null ? 'id_faskes_perujuk' : 'faskes_perujuk_tampil' ?>" class="form-label">Faskes perujuk</label>
+                        <?php if ($faskes_user === null): ?>
+                            <select class="form-select" id="id_faskes_perujuk" name="id_faskes_perujuk">
                                 <option value="">Tanpa faskes</option>
                                 <?php foreach ($faskes_options as $faskes): ?>
                                     <option value="<?= (int) $faskes['id_faskes'] ?>"><?= html_escape($faskes_label($faskes)) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
-                    <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php
+                            // Perujuk selalu faskes user; server juga memaksa nilai ini.
+                            $faskes_sendiri = array_values(array_filter($faskes_options, function ($faskes) use ($faskes_user) {
+                                return (int) $faskes['id_faskes'] === $faskes_user;
+                            }));
+                            ?>
+                            <input type="hidden" name="id_faskes_perujuk" value="<?= (int) $faskes_user ?>" data-locked="1">
+                            <input class="form-control" id="faskes_perujuk_tampil" value="<?= html_escape($faskes_sendiri ? $faskes_label($faskes_sendiri[0]) : '—') ?>" aria-label="Faskes perujuk" disabled>
+                            <div class="form-text">Otomatis sesuai faskes Anda.</div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_faskes_tujuan" class="form-label">Faskes tujuan</label>
+                        <select class="form-select" id="id_faskes_tujuan" name="id_faskes_tujuan">
+                            <option value="">Belum ditentukan</option>
+                            <?php foreach ($faskes_options as $faskes): ?>
+                                <?php if ((int) $faskes['id_faskes'] === $faskes_user) { continue; } ?>
+                                <option value="<?= (int) $faskes['id_faskes'] ?>"><?= html_escape($faskes_label($faskes)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Wajib diisi sebelum rujukan dikirim.</div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

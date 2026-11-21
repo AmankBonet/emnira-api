@@ -132,6 +132,83 @@ $fakta = [
     </aside>
 
     <div class="rm-main">
+        <?php
+        $status = $status_rujukan[$patient['status_rujukan']];
+        $format_waktu = function ($value) {
+            $date = $value ? DateTime::createFromFormat('Y-m-d H:i:s', $value) : false;
+
+            return $date ? $date->format('d/m/Y H:i') : '—';
+        };
+
+        // Isi peringatan pengiriman: data yang belum lengkap tetap boleh dikirim, tetapi harus disadari.
+        $kurang = [];
+        if (!$patient['id_faskes_tujuan']) {
+            $kurang[] = 'faskes tujuan belum ditentukan';
+        }
+        if (!$observasi_terakhir) {
+            $kurang[] = 'belum ada observasi MEOWS';
+        }
+        if (!$diagnosis_kunjungan) {
+            $kurang[] = 'diagnosa kerja belum dipilih';
+        }
+        ?>
+        <section class="rm-status mb-3" aria-label="Status rujukan">
+            <div class="rm-status-main">
+                <span class="badge <?= $status['badge'] ?>"><?= html_escape($status['label']) ?></span>
+                <span class="small">
+                    <?php if ($patient['status_rujukan'] === 'draf'): ?>
+                        <?= $akses_rm['edit'] ? 'Lengkapi data lalu kirim rujukan ke faskes tujuan.' : 'Rujukan belum dikirim.' ?>
+                    <?php else: ?>
+                        Dikirim <?= html_escape($format_waktu($patient['waktu_dikirim'])) ?> oleh <?= html_escape($patient['nama_pengirim'] ?: '—') ?>
+                        <?php if ($patient['waktu_diterima']): ?>
+                            · diterima <?= html_escape($format_waktu($patient['waktu_diterima'])) ?> (<?= html_escape($patient['nama_penerima'] ?: '—') ?>)
+                        <?php endif; ?>
+                        <?php if ($patient['waktu_tiba']): ?>
+                            · tiba <?= html_escape($format_waktu($patient['waktu_tiba'])) ?>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                <?php if ($akses_rm['kirim']): ?>
+                    <?= form_open('web/rm/' . $id . '/kirim', [
+                        'data-confirm-title' => 'Kirim rujukan ke ' . html_escape($patient['nama_faskes_tujuan'] ?: 'faskes tujuan') . '?',
+                        'data-confirm' => html_escape(
+                            'Setelah dikirim, data terkunci dan hanya observasi yang dapat ditambahkan.'
+                            . ($kurang ? ' Perhatian: ' . implode(', ', $kurang) . '.' : '')
+                        ),
+                        'data-confirm-button' => 'Ya, kirim'
+                    ]) ?>
+                        <button type="submit" class="btn btn-sm btn-primary">Kirim rujukan</button>
+                    <?= form_close() ?>
+                <?php endif; ?>
+                <?php if ($akses_rm['batal_kirim']): ?>
+                    <?= form_open('web/rm/' . $id . '/batal_kirim', [
+                        'data-confirm-title' => 'Batalkan pengiriman?',
+                        'data-confirm' => 'Rujukan ditarik dari faskes tujuan dan data dapat diubah kembali.',
+                        'data-confirm-button' => 'Ya, batalkan'
+                    ]) ?>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Batalkan pengiriman</button>
+                    <?= form_close() ?>
+                <?php endif; ?>
+                <?php if ($akses_rm['peran'] === 'tujuan'): ?>
+                    <a class="btn btn-sm btn-outline-primary" href="<?= html_escape(site_url('web/rujukan/' . $id)) ?>">Ringkasan SBAR</a>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <?php if (!$akses_rm['edit']): ?>
+            <div class="rm-readonly-note mb-3">
+                <?php if ($akses_rm['peran'] === 'tujuan'): ?>
+                    Mode baca: data diisi oleh <?= html_escape($patient['nama_faskes_perujuk'] ?: 'faskes perujuk') ?> dan tidak dapat diubah.
+                <?php elseif ($akses_rm['observasi']): ?>
+                    Rujukan sudah dikirim: data terkunci. Observasi tanda vital masih dapat ditambahkan selama pasien belum tiba.
+                <?php else: ?>
+                    Data terkunci dan hanya dapat dilihat.
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
         <?php if ($flags): ?>
             <section class="rm-alerts mb-3" aria-label="Kewaspadaan medis">
                 <div class="rm-alerts-head">
@@ -170,13 +247,20 @@ $fakta = [
                 </div>
             <?php endif; ?>
 
-            <?php $this->load->view('web/rm/tabs/' . $tab, [
-                'id' => $id,
-                'state_data' => $state_data,
-                'format_date' => $format_date,
-                'umur' => $umur,
-                'jumlah_riwayat' => $jumlah_riwayat
-            ]); ?>
+            <?php
+            // Form dinonaktifkan untuk mode baca; tab vital tetap aktif selama observasi masih boleh ditambah.
+            $form_aktif = $tab === 'vital' ? $akses_rm['observasi'] : $akses_rm['edit'];
+            ?>
+            <fieldset class="rm-fieldset <?= $form_aktif ? '' : 'is-readonly' ?>" <?= $form_aktif ? '' : 'disabled' ?>>
+                <?php $this->load->view('web/rm/tabs/' . $tab, [
+                    'id' => $id,
+                    'state_data' => $state_data,
+                    'format_date' => $format_date,
+                    'umur' => $umur,
+                    'jumlah_riwayat' => $jumlah_riwayat,
+                    'boleh_edit' => $akses_rm['edit']
+                ]); ?>
+            </fieldset>
         </div>
     </div>
 </div>

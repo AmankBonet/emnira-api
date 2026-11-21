@@ -30,9 +30,16 @@ class Web_auth_model extends CI_Model
 
     public function active_user($id)
     {
+        // Nama faskes dan role ditampilkan di sidebar sebagai penanda ruang kerja user.
         return $this->db
-            ->select('id_user, nama, username, id_role, id_faskes')
-            ->get_where('m_user', ['id_user' => $id, 'id_active' => 1])
+            ->select('u.id_user, u.nama, u.username, u.id_role, u.id_faskes')
+            ->select('f.nama_faskes, f.kategori, r.nama_role')
+            ->from('m_user u')
+            ->join('m_faskes f', 'f.id_faskes = u.id_faskes', 'left')
+            ->join('m_role r', 'r.id_role = u.id_role', 'left')
+            ->where('u.id_user', $id)
+            ->where('u.id_active', 1)
+            ->get()
             ->row_array();
     }
 }

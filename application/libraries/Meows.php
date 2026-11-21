@@ -100,6 +100,30 @@ class Meows
         return $hasil;
     }
 
+    /**
+     * Penanda kewaspadaan dari observasi terakhir (dipakai rekam medis dan ringkasan rujukan).
+     */
+    public function flags($observasi)
+    {
+        if (!$observasi || $observasi['meows_zona'] === null || $observasi['meows_zona'] === 'normal') {
+            return [];
+        }
+
+        $waktu = DateTime::createFromFormat('Y-m-d H:i:s', $observasi['waktu_observasi']);
+        $text = 'MEOWS terakhir ' . (int) $observasi['meows_skor']
+            . ' (zona ' . $observasi['meows_zona'] . ')'
+            . ($waktu ? ' pada ' . $waktu->format('d/m/Y H:i') : '');
+
+        if ($observasi['meows_zona'] === 'merah') {
+            $text .= ' — segera evaluasi dan laporkan ke dokter.';
+        }
+
+        return [[
+            'level' => $observasi['meows_zona'] === 'merah' ? 'bahaya' : 'risiko',
+            'text' => $text
+        ]];
+    }
+
     public function zona($jumlah_merah, $jumlah_kuning)
     {
         $pemicu = $this->rules['pemicu'];

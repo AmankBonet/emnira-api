@@ -32,8 +32,12 @@ class Rm extends Web_Controller
     {
         parent::__construct();
 
+        // Pendaftaran pasien dan rujukan keluar adalah menu FKTP.
+        $this->require_menu('fktp');
+
         $this->load->model('web/Kunjungan_model', 'kunjungan');
         $this->load->library('form_validation');
+        $this->config->load('rujukan_status');
     }
 
     public function index()
@@ -44,15 +48,25 @@ class Rm extends Web_Controller
         $page = $this->input->get('page');
         $page = is_string($page) && ctype_digit($page) ? max(1, (int) $page) : 1;
 
-        $total = $this->kunjungan->count_filtered($search);
+        // Daftar ini berisi pasien yang dirujuk OLEH faskes user; rujukan yang diterima ada di menu Rujukan masuk.
+        $faskes_id = $this->akses->faskes_id();
+        $total = $this->kunjungan->count_filtered($search, $faskes_id);
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page = min($page, $pages);
+
+        $patients = $this->kunjungan->listing($search, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $faskes_id);
+        foreach ($patients as &$patient) {
+            $patient['can_edit'] = $this->akses->can_edit($patient);
+        }
+        unset($patient);
 
         $this->render('web/rm/index', [
             'page_title' => 'Identitas pasien',
             'active_menu' => 'rm',
-            'patients' => $this->kunjungan->listing($search, self::PER_PAGE, ($page - 1) * self::PER_PAGE),
+            'patients' => $patients,
             'faskes_options' => $this->kunjungan->faskes_options(),
+            'faskes_user' => $faskes_id,
+            'status_rujukan' => $this->config->item('status_rujukan'),
             'search' => $search,
             'total' => $total,
             'page' => $page,
@@ -76,8 +90,19 @@ class Rm extends Web_Controller
         }
 
         $id = (int) $raw_id;
-        if ($id > 0 && !$this->kunjungan->find($id)) {
-            show_404();
+        if ($id > 0) {
+            $existing = $this->kunjungan->find($id);
+
+            if (!$existing || !$this->akses->can_view($existing)) {
+                show_404();
+            }
+
+            if (!$this->akses->can_edit($existing)) {
+                $this->session->set_flashdata('error', 'Rujukan sudah dikirim; identitas pasien tidak dapat diubah.');
+                redirect('web/rm');
+
+                return;
+            }
         }
 
         $data = [];
@@ -88,6 +113,11 @@ class Rm extends Web_Controller
             }
 
             $data[$field] = trim((string) $value);
+        }
+
+        // Faskes perujuk selalu faskes user yang login; hanya administrator yang boleh memilih.
+        if (!$this->akses->is_admin()) {
+            $data['id_faskes_perujuk'] = (string) $this->akses->faskes_id();
         }
 
         $this->form_validation->set_data($data);
@@ -118,6 +148,13 @@ class Rm extends Web_Controller
                 ) {
                     $errors[] = $label . ' yang dipilih tidak tersedia. Silakan pilih kembali.';
                 }
+            }
+
+            if (
+                $data['id_faskes_perujuk'] !== ''
+                && $data['id_faskes_perujuk'] === $data['id_faskes_tujuan']
+            ) {
+                $errors[] = 'Faskes tujuan harus berbeda dengan faskes perujuk.';
             }
         }
 
@@ -160,8 +197,16 @@ class Rm extends Web_Controller
     {
         $this->require_post();
 
-        if (!$this->is_valid_id((string) $id, false) || !$this->kunjungan->find((int) $id)) {
+        $existing = $this->is_valid_id((string) $id, false) ? $this->kunjungan->find((int) $id) : null;
+        if (!$existing || !$this->akses->can_view($existing)) {
             show_404();
+        }
+
+        if (!$this->akses->can_edit($existing)) {
+            $this->session->set_flashdata('error', 'Rujukan sudah dikirim; data pasien tidak dapat dihapus.');
+            redirect('web/rm');
+
+            return;
         }
 
         // t_rm tidak memiliki foreign key ke t_kunjungan, jadi relasinya dijaga di sini.
